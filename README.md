@@ -1,44 +1,55 @@
-# NarrateAI
-Here's a professional, comprehensive README for your NarrateAI project:
-
----
-
 # 🎙️ NarrateAI
 
 ### AI-Powered Multi-Voice Audiobook Engine
 
-[![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=flat&logo=vercel)](https://narrate-ai-gamma.vercel.app)
-[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue?style=flat&logo=github)](https://github.com/AbuAnsari-06/NarrateAI)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-GDGOC%20PSIT-FF7844?style=flat&logo=hacktoberfest&logoColor=white)](https://github.com/PSIT-GDGOC/narrate-ai)
 [![React](https://img.shields.io/badge/React-19.0-blue?style=flat&logo=react)](https://react.dev)
+[![Vite](https://img.shields.io/badge/Vite-6.x-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev)
 [![Groq](https://img.shields.io/badge/Powered%20by-Groq-orange?style=flat&logo=groq)](https://groq.com)
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=flat&logo=vercel)](https://narrate-ai-gamma.vercel.app)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+---
+
+## 🎃 Welcome Hacktoberfest Contributors!
+
+NarrateAI is proud to be part of the **GDGOC PSIT Hacktoberfest** programme! We welcome contributions from developers of all skill levels. Whether you are fixing typos, improving UI/UX accessibility, adding unit tests, or implementing new AI features, there is an issue waiting for you.
+
+### 🏆 Points & Difficulty Tiers
+Issues are categorized and tracked by our automated webhook:
+
+| Difficulty | Label | Points | Description |
+|---|---|---|---|
+| **Easy** | `easy` | **20 pts** | Documentation, UI tweaks, sample stories, accessibility |
+| **Medium** | `medium` | **40 pts** | Audio chunking, component refactoring, test suites, exports |
+| **Hard** | `hard` | **80 pts** | Browser extension, multi-language speech, backend integration |
 
 ---
 
 ## 📖 What is NarrateAI?
 
-**NarrateAI** is a web application that transforms raw story text into an immersive multi-voice audiobook experience. It uses AI to analyze your story, identify characters, assign them distinct voices, and read the story aloud with emotion-driven speech patterns.
+**NarrateAI** is a web application that transforms raw story text into an immersive multi-voice audiobook experience. It uses AI to analyze stories, detect distinct characters and unspoken thoughts, extract emotions, and direct the browser's native speech synthesis engine (Web Speech API) with customized pitch, rate, and vocal personas.
 
 ### ✨ Key Features
 
 | Feature | Description |
-|---------|-------------|
+|---|---|
 | 🤖 **AI-Powered Analysis** | Uses Groq's Llama 3.3 70B to identify characters, emotions, and voice profiles |
 | 🎭 **Distinct Character Voices** | Each character gets a unique voice based on their persona (gender, age, personality) |
-| 😊 **Emotion-Driven Speech** | Pitch, rate, and volume adjust based on character emotions (happy, sad, angry, fearful, etc.) |
+| 😊 **Emotion-Driven Speech** | Pitch, rate, and volume adjust dynamically based on character emotions (happy, sad, angry, fearful, etc.) |
 | ⏯️ **Full Playback Controls** | Play, pause, stop, skip forward/backward, and adjustable speed (0.75× to 1.5×) |
-| 📱 **Responsive Design** | Works on desktop, tablet, and mobile browsers |
-| 💾 **Local Storage** | Saves your API key, story, and playback state automatically |
-| 🕒 **History Panel** | Quick access to your last 5 analyzed stories |
-| 🎨 **Visual Character Panel** | Click on any character to see their assigned voice and persona |
-| 🔍 **Line-by-Line Highlighting** | Active line is highlighted and auto-scrolls during playback |
-| ⌨️ **Keyboard Shortcuts** | Space (play/pause), R (reset), Arrow keys (skip) |
+| 📱 **Responsive Design** | Modern, dark-themed UI that works on desktop, tablet, and mobile browsers |
+| 💾 **Local Storage** | Automatically persists your API key, story text, and playback state |
+| 🕒 **History Panel** | Fast access to re-listen to your last 5 analyzed stories |
+| 🎨 **Visual Character Panel** | Inspect character profiles, emotional traits, and their assigned browser voices |
+| 🔍 **Line-by-Line Highlighting** | Active line is highlighted and auto-scrolls during narration |
+| ⌨️ **Keyboard Shortcuts** | `Space` (play/pause), `R` (reset), Arrow keys (skip lines) |
 
 ---
 
 ## 🚀 Live Demo
 
-**Try it now:** [https://narrate-ai-gamma.vercel.app](https://narrate-ai-gamma.vercel.app)
+Experience NarrateAI in action: **[https://narrate-ai-gamma.vercel.app](https://narrate-ai-gamma.vercel.app)**
 
 ---
 
@@ -60,11 +71,9 @@ Here's a professional, comprehensive README for your NarrateAI project:
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Groq API                               │
 │  ┌───────────────────────────────────────────────────────────┐ │
-│  │              Llama 3.3 70B (or fallback models)          │ │
-│  │   ┌───────────────────────────────────────────────────┐  │ │
-│  │   │  Analyzes story → Identifies → Returns JSON      │  │ │
-│  │   │  • Characters      • Emotions   • Voice profiles │  │ │
-│  │   └───────────────────────────────────────────────────┘  │ │
+│  │              Llama 3.3 70B (Fast inference)               │ │
+│  │   • Characters    • Inner Thoughts    • Emotions         │ │
+│  │   • Voice Profile (pitch, rate)      • Persona tags     │ │
 │  └───────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                                │
@@ -72,189 +81,104 @@ Here's a professional, comprehensive README for your NarrateAI project:
 ┌─────────────────────────────────────────────────────────────────┐
 │                  Browser Web Speech API                        │
 │  ┌───────────────────────────────────────────────────────────┐ │
-│  │  Converts JSON to audio with:                            │ │
-│  │  • Distinct voices per character                         │ │
-│  │  • Emotion-based pitch/rate/volume adjustments           │ │
+│  │  • Assigns best matching browser TTS voice per character  │ │
+│  │  • Applies dynamic pitch, rate & volume modulation       │ │
+│  │  • Real-time speech synthesis directly in browser        │ │
 │  └───────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+> **Note on Backend**: The core web app runs entirely client-side without requiring a server. An optional FastAPI server is included in the `backend/` directory for optional proxying or centralized API access.
 
 ---
 
 ## 🛠️ Tech Stack
 
-### Frontend
-- **React 19** – UI framework
-- **Vite** – Build tool and dev server
-- **Web Speech API** – Browser-based text-to-speech
-- **Groq API** – AI analysis (Llama 3.3 70B)
-
-### Deployment
-- **GitHub** – Version control and code hosting
-- **Vercel** – Frontend deployment
+- **Frontend**: React 19, Vite, Vanilla CSS
+- **Audio & Speech**: Browser Native Web Speech API (`window.speechSynthesis`)
+- **AI Inference**: Groq Cloud API (`llama-3.3-70b-versatile`)
+- **Backend (Optional)**: FastAPI, Python 3.10+, Uvicorn
 
 ---
 
 ## 📦 Installation & Setup
 
 ### Prerequisites
-- Node.js (v18 or higher)
-- npm or yarn
-- Groq API key (free at [console.groq.com](https://console.groq.com/keys))
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- `npm` or `yarn`
+- A free Groq API key from [console.groq.com/keys](https://console.groq.com/keys)
 
-### Local Development
+### Local Development Steps
 
-1. **Clone the repository**
-```bash
-git clone https://github.com/AbuAnsari-06/NarrateAI.git
-cd NarrateAI
-```
+1. **Fork and Clone the Repository**
+   ```bash
+   git clone https://github.com/<your-username>/narrate-ai.git
+   cd narrate-ai
+   ```
 
-2. **Install dependencies**
-```bash
-npm install
-```
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
 
-3. **Start the development server**
-```bash
-npm run dev
-```
+3. **Start Development Server**
+   ```bash
+   npm run dev
+   ```
+   Open `http://localhost:5173` in your browser.
 
-4. **Open your browser**
-```
-http://localhost:5173
-```
-
-### Production Build
-
-```bash
-npm run build
-```
-
-The built files will be in the `dist/` folder.
+4. **Verify Code Quality**
+   ```bash
+   npm run lint
+   npm run build
+   ```
 
 ---
 
-## 🎯 How to Use
+## 🎯 How to Use NarrateAI
 
-1. **Get a Groq API Key**
-   - Go to [console.groq.com/keys](https://console.groq.com/keys)
-   - Sign up for a free account (no credit card required)
-   - Create a new API key
-
-2. **Open NarrateAI**
-   - Visit [narrate-ai-gamma.vercel.app](https://narrate-ai-gamma.vercel.app)
-   - Paste your Groq API key in the first field
-
-3. **Enter Your Story**
-   - Paste any story, chapter, or scene in the text area
-   - Or click "Sample" to try the built-in example
-
-4. **Analyze & Listen**
-   - Click **"Analyse & Prepare Voices"**
-   - Wait for the AI to process (usually 5-15 seconds)
-   - Click **"Play"** to start the audiobook
-   - Characters will have distinct voices with emotion!
+1. **Enter Your Groq API Key**: Get a free key at [console.groq.com/keys](https://console.groq.com/keys) and paste it into the API key field. (Stored locally in your browser).
+2. **Input Story Text**: Paste any narrative scene or dialogue-heavy story, or click **"Sample"** to load a pre-set story.
+3. **Analyse**: Click **"Analyse & Prepare Voices"**. Groq will structure the dialogue and assign voice profiles within seconds.
+4. **Listen**: Click **"Play"** to enjoy the multi-voice performance!
 
 ---
 
-## 🎮 Controls
+## 🤝 Contribution Guidelines (GDGOC Hacktoberfest)
 
-### Playback Controls
-- ▶️ **Play** – Start or resume playback
-- ⏸️ **Pause** – Pause current playback
-- ⏹️ **Stop** – Stop and reset to beginning
-- ⏮️ **Previous** – Skip to previous line
-- ⏭️ **Next** – Skip to next line
-- **Speed** – Adjust playback speed (0.75× – 1.5×)
+We love contributions! Please follow this workflow to ensure your pull request is tracked and credited:
 
-### Keyboard Shortcuts
-- `Space` – Play / Pause
-- `R` – Stop and reset
-- `←` – Skip backward
-- `→` – Skip forward
+### 1. Claiming an Issue
+1. Browse the open issues labeled `hacktoberfest`.
+2. **Claim the issue on the Hacktoberfest portal first** before starting work.
+3. Each issue has a claim timer (~48 hours). Please only claim an issue if you intend to work on it immediately.
 
-### Character Panel
-- Click on any character card to see:
-  - Their persona description from the story
-  - The assigned voice (browser voice name)
+### 2. Working on Your Changes
+1. Fork `PSIT-GDGOC/narrate-ai` to your personal GitHub account.
+2. Clone your fork locally and create a dedicated branch:
+   ```bash
+   git checkout -b fix-issue-<issue-number>
+   ```
+3. Make your changes adhering to clean code standards.
+4. Test thoroughly and ensure build and lint checks pass:
+   ```bash
+   npm run lint
+   npm run build
+   ```
 
----
-
-## 🧠 How the AI Works
-
-### Stage 1: Story Analysis (Groq LLM)
-The AI analyzes the story and returns structured JSON with:
-- **Speaker** – Character name or "Narrator"
-- **Text** – The dialogue or narration
-- **Emotion** – One of: neutral, happy, angry, sad, fearful, excited, surprised
-- **isThought** – Boolean (true for inner monologue)
-- **Persona** – 4-6 descriptive words (gender, age, vocal traits)
-- **Voice Profile** – Pitch and rate values (0.6–1.8 pitch, 0.8–1.3 rate)
-
-### Stage 2: Voice Assignment (Browser TTS)
-- Scores available browser voices against character persona hints
-- Matches gender (male/female) and age (young/old)
-- Prioritizes high-quality "Neural" or "Natural" voices
-- Ensures each character gets a distinct voice
-- Applies emotion-based pitch/rate/volume adjustments
-
-### Stage 3: Playback (Web Speech API)
-- Converts each JSON line to audio
-- Applies character voice + emotion parameters
-- Auto-scrolls and highlights current line
-- Handles edge cases (thoughts, narrator, empty lines)
-
----
-
-## 🤔 Why This Approach?
-
-| Decision | Reason |
-|----------|--------|
-| **No backend needed** | Users paste their own API keys → no server costs or key management |
-| **Groq API** | Extremely fast, generous free tier, and great JSON output |
-| **Web Speech API** | Native browser TTS → no audio file generation needed |
-| **React + Vite** | Fast development, modern tooling, easy deployment |
-| **Vercel** | Free hosting, auto-deploys from GitHub, CDN included |
-
----
-
-## 🌟 Upcoming Features
-
-- [ ] **Browser Extension** – One-click narration from any webpage (Wattpad, blogs, etc.)
-- [ ] **Backend API** – Optional server-side analysis for shared keys
-- [ ] **Audio Export** – Download audiobook as MP3
-- [ ] **Custom Voice Training** – Clone character voices
-- [ ] **Multi-language Support** – Narrate stories in other languages
-- [ ] **Patreon Integration** – Premium features for supporters
-
----
-
-## 🐛 Known Limitations
-
-- Voice quality depends on the user's browser and operating system
-- Microsoft Edge has the best voice quality (Neural voices)
-- Chrome and Safari have good voices but fewer options
-- Very long stories (>5000 words) may take longer to process
-- Free Groq tier has rate limits (check [console.groq.com](https://console.groq.com))
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Development Guidelines
-- Use ESLint for code formatting (`npm run lint`)
-- Keep components focused and reusable
-- Add comments for complex logic
-- Test voice assignment on multiple browsers
+### 3. Submitting Your Pull Request
+1. Push your branch to your fork:
+   ```bash
+   git push origin fix-issue-<issue-number>
+   ```
+2. Open a Pull Request targeting the `main` branch of `PSIT-GDGOC/narrate-ai`.
+3. **MANDATORY**: In your PR description, include:
+   ```markdown
+   Fixes #<issue-number>
+   ```
+   *(e.g., `Fixes #12`). Our tracking webhook relies on this keyword to link and credit your PR.*
+4. Link screenshots or GIFs for UI-related changes.
+5. Keep each PR focused on a single issue.
 
 ---
 
@@ -266,19 +190,6 @@ This project is licensed under the MIT License – see the [LICENSE](LICENSE) fi
 
 ## 🙏 Acknowledgments
 
-- **Groq** – For their incredible Llama 3.3 70B API (lightning fast!)
-- **React** – For making UI development a joy
-- **Vercel** – For making deployment effortless
-- **Web Speech API** – For bringing TTS to the browser
-
----
-
-## 📞 Contact
-
-**Abu Ansari**  
-- GitHub: [@AbuAnsari-06](https://github.com/AbuAnsari-06)
-- Project Link: [https://github.com/AbuAnsari-06/NarrateAI](https://github.com/AbuAnsari-06/NarrateAI)
-
----
-
-**Made with ❤️ and AI**
+- **Groq** for ultra-low latency Llama 3.3 70B inference.
+- **GDGOC PSIT** for hosting the Hacktoberfest open-source celebration.
+- All our student and open-source contributors!
