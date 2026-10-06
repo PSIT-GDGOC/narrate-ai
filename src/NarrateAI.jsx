@@ -88,21 +88,112 @@ OUTPUT FORMAT:
   }
 ]`;
 
-// ─── HELPER FOR ROBUST JSON EXTRACTION ────────────────────────────────────────
+// ─── HELPER FOR INDESTRUCTIBLE ROBUST JSON EXTRACTION ────────────────────────
 function cleanAndParseJSON(rawText) {
-  let cleaned = rawText.trim();
-  
-  // 1. Strip markdown fences if present
-  cleaned = cleaned.replace(/```json|```/g, "").trim();
-  
-  // 2. Find first [ and last ] to extract JSON array
-  const startIdx = cleaned.indexOf("[");
-  const endIdx = cleaned.lastIndexOf("]");
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    cleaned = cleaned.substring(startIdx, endIdx + 1);
+  if (!rawText || typeof rawText !== "string") {
+    throw new Error("Empty response received from AI model.");
   }
-  
-  return JSON.parse(cleaned);
+
+  let cleaned = rawText.trim();
+
+  // 1. Strip markdown code fences (```json ... ``` or ``` ...)
+  cleaned = cleaned.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
+
+  // 2. Direct fast-path parse
+  try {
+    const direct = JSON.parse(cleaned);
+    if (Array.isArray(direct)) return direct;
+    if (direct && typeof direct === "object") {
+      for (const k of ["lines", "dialogue", "story", "output", "data"]) {
+        if (Array.isArray(direct[k])) return direct[k];
+      }
+      return [direct];
+    }
+  } catch {
+    // Proceed to auto-repair
+  }
+
+  // 3. Extract the primary JSON segment
+  const firstBracket = cleaned.indexOf("[");
+  const firstBrace = cleaned.indexOf("{");
+
+  let rootType = "array";
+  let startIdx = firstBracket;
+  if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+    rootType = "object";
+    startIdx = firstBrace;
+  }
+
+  if (startIdx !== -1) {
+    cleaned = cleaned.substring(startIdx);
+  }
+
+  // 4. Auto-repair missing commas between objects: } \s* {  -->  }, {
+  cleaned = cleaned.replace(/\}\s*(?=\{)/g, "},");
+
+  // 5. Auto-repair missing commas between array elements: ] \s* [  -->  ], [
+  cleaned = cleaned.replace(/\]\s*(?=\[)/g, "],");
+
+  // 6. Strip invalid trailing commas before closing braces/brackets
+  cleaned = cleaned.replace(/,\s*([\]\}])/g, "$1");
+
+  // 7. Auto-repair truncated output (e.g., token limit cutoff)
+  if (rootType === "array") {
+    const lastBracket = cleaned.lastIndexOf("]");
+    if (lastBracket !== -1) {
+      cleaned = cleaned.substring(0, lastBracket + 1);
+    } else {
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (lastBrace !== -1) {
+        cleaned = cleaned.substring(0, lastBrace + 1) + "\n]";
+      } else {
+        cleaned = cleaned + "\n]";
+      }
+    }
+  } else {
+    const lastBrace = cleaned.lastIndexOf("}");
+    if (lastBrace !== -1) {
+      cleaned = cleaned.substring(0, lastBrace + 1);
+    } else {
+      cleaned = cleaned + "\n}";
+    }
+  }
+
+  // 8. Try parsing again after syntactic normalization
+  try {
+    const repaired = JSON.parse(cleaned);
+    if (Array.isArray(repaired)) return repaired;
+    if (repaired && typeof repaired === "object") {
+      for (const k of ["lines", "dialogue", "story", "output", "data"]) {
+        if (Array.isArray(repaired[k])) return repaired[k];
+      }
+      return [repaired];
+    }
+  } catch {
+    // 9. Aggressive object-by-object salvage as ultimate safety net
+    const objectRegex = /\{[\s\S]*?\}(?=\s*[,\]\}]|\s*\{|\s*$)/g;
+    const matches = cleaned.match(objectRegex);
+    if (matches && matches.length > 0) {
+      const recovered = [];
+      for (const m of matches) {
+        try {
+          const fixedObj = m.replace(/,\s*\}/g, "}");
+          const obj = JSON.parse(fixedObj);
+          if (obj && (obj.text || obj.speaker)) {
+            recovered.push(obj);
+          }
+        } catch {
+          // ignore corrupted single unit
+        }
+      }
+      if (recovered.length > 0) {
+        return recovered;
+      }
+    }
+  }
+
+  // If all automated repairs failed, throw with actionable message
+  throw new Error("Unable to parse AI story analysis. The AI returned an unparseable response.");
 }
 
 // ─── FUZZY SPEAKER DEDUPLICATION ──────────────────────────────────────────────
@@ -140,7 +231,7 @@ function deduplicateSpeakers(parsedLines) {
 }
 
 // ─── INDIVIDUAL GROQ ATTEMPT ──────────────────────────────────────────────────
-async function callGroqWithModel(apiKey, storyText, model, retryPromptSuffix = "") {
+async function callGroqWithModel(apiKey, storyText, model, retryPromptSuffix = "", maxTokens = 4096) {
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
   const userContent = retryPromptSuffix 
@@ -150,15 +241,20 @@ async function callGroqWithModel(apiKey, storyText, model, retryPromptSuffix = "
   const body = {
     model: model,
     temperature: 0.4,
-    max_tokens: 8192,
+    max_tokens: maxTokens,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user",   content: userContent },
     ],
   };
 
+  if (model.includes("gpt-oss")) {
+    body.reasoning_format = "hidden";
+    body.reasoning_effort = "low";
+  }
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 35000); // 35-second timeout
 
   try {
     const response = await fetch(url, {
@@ -175,45 +271,219 @@ async function callGroqWithModel(apiKey, storyText, model, retryPromptSuffix = "
 
     const data = await response.json();
 
-    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    if (data.error) {
+      const errMsg = data.error.message || JSON.stringify(data.error);
+      // Auto-retry if rate limit or token limit specifies an allowed Limit
+      if ((errMsg.includes("OTPM") || errMsg.includes("limit") || errMsg.includes("max_tokens") || errMsg.includes("Requested")) && maxTokens > 500) {
+        const limitMatch = errMsg.match(/Limit\s+(\d+)/i);
+        const lowerTokens = limitMatch ? Math.min(parseInt(limitMatch[1], 10), 950) : 950;
+        console.warn(`Retrying ${model} with reduced max_tokens=${lowerTokens} due to tier limit constraint.`);
+        return await callGroqWithModel(apiKey, storyText, model, retryPromptSuffix, lowerTokens);
+      }
+      throw new Error(errMsg);
+    }
 
     return data.choices?.[0]?.message?.content || "";
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === "AbortError") {
-      throw new Error(`Timeout after 30 seconds for model ${model}.`);
+      throw new Error(`Timeout after 35 seconds for model ${model}.`);
     }
     throw err;
   }
 }
 
-// ─── GROQ API CALL WITH MODEL FALLBACK & RETRIES ──────────────────────────────
-async function callGroq(apiKey, storyText) {
-  const models = ["llama-3.3-70b-versatile", "llama3-70b-8192", "llama-3.1-8b-instant"];
-  let lastError = null;
+// ─── DYNAMIC GROQ MODEL DISCOVERY ─────────────────────────────────────────────
+async function fetchActiveGroqModels(apiKey) {
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: { "Authorization": `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data?.data || !Array.isArray(data.data)) return null;
 
+    // Filter out audio, whisper, embeddings, moderation, and deprecated models
+    const excluded = ["whisper", "guard", "embed", "moderation", "tts", "stt", "vision", "compound-mini", "llama3-70b", "llama3-8b"];
+    const textModels = data.data
+      .map(m => m.id)
+      .filter(id => id && !excluded.some(ex => id.toLowerCase().includes(ex)));
+
+    // Prioritize high-capacity models first (10,000+ TPM), then Qwen/Gemma
+    const preferred = [
+      "llama-3.3-70b-versatile",
+      "openai/gpt-oss-120b",
+      "openai/gpt-oss-20b",
+      "llama-3.1-70b-versatile",
+      "llama-3.1-8b-instant",
+      "gemma2-9b-it",
+      "qwen/qwen3.8-27b",
+      "qwen/qwen3.6-27b",
+      "qwen-2.5-32b",
+    ];
+
+    const sorted = [
+      ...preferred.filter(m => textModels.includes(m)),
+      ...textModels.filter(m => !preferred.includes(m)),
+    ];
+
+    return sorted.length > 0 ? sorted : null;
+  } catch (e) {
+    console.warn("Dynamic model query failed:", e);
+    return null;
+  }
+}
+
+// ─── STORY CHUNKING ENGINE FOR UNLIMITED LENGTH STORIES ───────────────────────
+function splitStoryIntoChunks(storyText, targetWords = 320) {
+  if (!storyText || !storyText.trim()) return [];
+
+  const rawParagraphs = storyText.split(/\n+/).map(p => p.trim()).filter(Boolean);
+  if (rawParagraphs.length === 0) return [storyText.trim()];
+
+  const totalWords = storyText.split(/\s+/).filter(Boolean).length;
+  if (totalWords <= 380) {
+    return [storyText.trim()];
+  }
+
+  const chunks = [];
+  let currentChunk = [];
+  let currentWords = 0;
+
+  for (const para of rawParagraphs) {
+    const paraWords = para.split(/\s+/).filter(Boolean).length;
+
+    if (paraWords > targetWords * 1.3) {
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk.join("\n\n"));
+        currentChunk = [];
+        currentWords = 0;
+      }
+
+      const sentences = para.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [para];
+      let subChunk = [];
+      let subWords = 0;
+
+      for (const sent of sentences) {
+        const sentWords = sent.split(/\s+/).filter(Boolean).length;
+        if (subWords + sentWords > targetWords && subChunk.length > 0) {
+          chunks.push(subChunk.join(" ").trim());
+          subChunk = [sent.trim()];
+          subWords = sentWords;
+        } else {
+          subChunk.push(sent.trim());
+          subWords += sentWords;
+        }
+      }
+
+      if (subChunk.length > 0) {
+        chunks.push(subChunk.join(" ").trim());
+      }
+      continue;
+    }
+
+    if (currentWords + paraWords > targetWords && currentChunk.length > 0) {
+      chunks.push(currentChunk.join("\n\n"));
+      currentChunk = [para];
+      currentWords = paraWords;
+    } else {
+      currentChunk.push(para);
+      currentWords += paraWords;
+    }
+  }
+
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk.join("\n\n"));
+  }
+
+  return chunks;
+}
+
+// ─── SINGLE CHUNK ANALYZER ───────────────────────────────────────────────────
+async function callGroqSingleChunk(apiKey, chunkText, models, knownCharacters = {}) {
+  let charPrompt = "";
+  const knownKeys = Object.keys(knownCharacters);
+  if (knownKeys.length > 0) {
+    const charList = Object.entries(knownCharacters).map(([name, persona]) => `"${name}" (${persona})`).join(", ");
+    charPrompt = `\n\nALREADY INTRODUCED CHARACTERS: ${charList}. If any of these characters appear or speak, use their EXACT name and persona.`;
+  }
+  const textWithContext = chunkText + charPrompt;
+
+  let lastError = null;
   for (const model of models) {
+    const defaultTokens = model.toLowerCase().includes("qwen") ? 950 : 4096;
     try {
-      const rawText = await callGroqWithModel(apiKey, storyText, model);
+      const rawText = await callGroqWithModel(apiKey, textWithContext, model, "", defaultTokens);
       try {
         return cleanAndParseJSON(rawText);
       } catch (parseErr) {
         console.warn(`JSON parsing failed with model ${model}, retrying with correction...`, parseErr);
-        const retrySuffix = "IMPORTANT: Your previous output was not valid JSON. Please return ONLY a valid, parseable JSON array and nothing else. No markdown wrapping, no notes.";
-        const retryRawText = await callGroqWithModel(apiKey, storyText, model, retrySuffix);
+        const retrySuffix = "IMPORTANT: Return ONLY a valid JSON array. Each element MUST be separated by a comma. No markdown wrapping.";
+        const retryRawText = await callGroqWithModel(apiKey, textWithContext, model, retrySuffix, defaultTokens);
         return cleanAndParseJSON(retryRawText);
       }
     } catch (err) {
-      console.warn(`Groq model ${model} failed:`, err.message);
+      console.warn(`Groq model ${model} failed for chunk:`, err.message);
       lastError = err;
-      
       if (err.message?.includes("Invalid API key") || err.message?.includes("401") || err.message?.includes("invalid_api_key")) {
         throw err;
       }
     }
   }
-  
-  throw lastError || new Error("All Groq models failed to analyze the story.");
+  throw lastError || new Error("Failed to analyze scene chunk.");
+}
+
+// ─── MASTER GROQ CALL WITH AUTOMATIC SCENE CHUNKING ──────────────────────────
+async function callGroq(apiKey, storyText, onProgress) {
+  const chunks = splitStoryIntoChunks(storyText, 320);
+  const dynamicModels = await fetchActiveGroqModels(apiKey);
+  const fallbackModels = [
+    "llama-3.3-70b-versatile",
+    "openai/gpt-oss-120b",
+    "llama-3.1-8b-instant",
+    "openai/gpt-oss-20b",
+    "gemma2-9b-it",
+  ];
+  const models = (dynamicModels && dynamicModels.length > 0) ? dynamicModels : fallbackModels;
+
+  const allLines = [];
+  const knownCharacters = {};
+
+  for (let i = 0; i < chunks.length; i++) {
+    if (onProgress) {
+      onProgress({ current: i + 1, total: chunks.length });
+    }
+
+    if (i > 0) {
+      // Respect Groq rate limits between successive scene chunks
+      await new Promise(r => setTimeout(r, 600));
+    }
+
+    try {
+      const chunkLines = await callGroqSingleChunk(apiKey, chunks[i], models, knownCharacters);
+      if (Array.isArray(chunkLines) && chunkLines.length > 0) {
+        for (const line of chunkLines) {
+          if (line && typeof line.text === "string" && line.text.trim()) {
+            allLines.push(line);
+            if (line.speaker && line.speaker !== "Narrator" && line.persona) {
+              knownCharacters[line.speaker] = line.persona;
+            }
+          }
+        }
+      }
+    } catch (chunkErr) {
+      console.warn(`Chunk ${i + 1} issue:`, chunkErr);
+      if (allLines.length === 0 && i === chunks.length - 1) {
+        throw chunkErr;
+      }
+    }
+  }
+
+  if (allLines.length === 0) {
+    throw new Error("Unable to analyze story into audio units. Please check your text and try again.");
+  }
+
+  return deduplicateSpeakers(allLines);
 }
 
 // ─── VOICE ASSIGNMENT ENGINE ──────────────────────────────────────────────────
@@ -519,7 +789,7 @@ function ApiKeyPanel({ apiKey, onKeyChange }) {
       <label style={S.label}>
         🔑 Groq API Key
         <span style={{ marginLeft: 8, fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "#6366f1", fontSize: "10px" }}>
-          Free at console.groq.com — Llama 3.3 70B
+          Free at console.groq.com — GPT-OSS 120B / 20B
         </span>
       </label>
       <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
@@ -557,7 +827,7 @@ function ApiKeyPanel({ apiKey, onKeyChange }) {
       )}
       {apiKey && (
         <div style={{ fontSize: "12px", color: "#22c55e", marginTop: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
-          ✓ Groq API key set — Llama 3.3 70B ready
+          ✓ Groq API key set — AI models ready
         </div>
       )}
     </div>
@@ -1015,6 +1285,7 @@ export default function NarrateAI() {
   const [speechSupported]                     = useState(() => typeof window !== "undefined" && "speechSynthesis" in window && !!window.speechSynthesis);
   const [showFinished, setShowFinished]       = useState(false);
   const [loadingStep, setLoadingStep]         = useState("");
+  const [chunkProgress, setChunkProgress]     = useState(null);
   
   const [history, setHistory]                 = useState([]);
   const [showWritingPanel, setShowWritingPanel] = useState(true);
@@ -1219,6 +1490,7 @@ export default function NarrateAI() {
 
     setIsLoading(true);
     setLoadingStep("groq");
+    setChunkProgress(null);
     setError("");
     setParsedLines([]);
     setCharacters([]);
@@ -1226,9 +1498,12 @@ export default function NarrateAI() {
     stopPlayback();
 
     try {
-      const parsed = await callGroq(apiKey.trim(), storyText);
+      const parsed = await callGroq(apiKey.trim(), storyText, (progress) => {
+        setChunkProgress(progress);
+      });
 
       setLoadingStep("parse");
+      setChunkProgress(null);
 
       // ── FILTER OUT EMPTY LINES ──
       const filteredParsed = parsed.filter(line => line && typeof line.text === "string" && line.text.trim() !== "");
@@ -1455,7 +1730,7 @@ export default function NarrateAI() {
             background: "linear-gradient(135deg, #f97316, #ef4444)",
             color: "white", padding: "2px 8px", borderRadius: "20px",
             letterSpacing: "0.05em",
-          }}>GROQ · LLAMA 3.3</span>
+          }}>GROQ · GPT-OSS 120B</span>
         </div>
 
         {hasStory && (
@@ -1562,9 +1837,13 @@ export default function NarrateAI() {
                         borderTopColor: "#fff", borderRadius: "50%",
                         animation: "spin 0.7s linear infinite", display: "inline-block"
                       }} />
-                      {loadingStep === "groq" && "Analysing text with AI…"}
-                      {loadingStep === "parse" && "Fuzzying speakers & parsing…"}
-                      {loadingStep === "assign" && "Assigning neural voices…"}
+                      {chunkProgress && chunkProgress.total > 1
+                        ? `Analysing scene ${chunkProgress.current} of ${chunkProgress.total}…`
+                        : loadingStep === "groq"
+                        ? "Analysing text with AI…"
+                        : loadingStep === "parse"
+                        ? "Fuzzying speakers & parsing…"
+                        : "Assigning neural voices…"}
                     </span>
                   ) : "✨ Analyse & Prepare Voices"}
                 </button>
