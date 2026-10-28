@@ -8,6 +8,9 @@ import {
   YOUNG_HINTS,
   SYSTEM_PROMPT,
   NARRATION_WORDS_PER_MINUTE,
+  GROQ_RETRY_DELAYS_MS,
+  GROQ_MAX_RETRIES,
+  GROQ_RETRY_BUDGET_MS,
 } from "../constants/storyConstants";
 
 // ─── HELPER FOR ROBUST JSON EXTRACTION ────────────────────────────────────────
@@ -374,7 +377,102 @@ export function buildColorMap(lines) {
 }
 
 // ─── GROQ API CALLERS ────────────────────────────────────────────────────────
-export async function callGroqWithModel(apiKey, storyText, model, retryPromptSuffix = "", maxTokens = 4096) {
+const RETRYABLE_STATUSES = [429, 500, 502, 503, 504];
+
+function createGroqError(message, status, retryAfter = null, cause = null) {
+  const error = cause ? new Error(message, { cause }) : new Error(message);
+  error.status = status;
+  error.retryAfter = retryAfter;
+  return error;
+}
+
+function parseRetryAfter(headerValue) {
+  if (!headerValue) return null;
+  const seconds = Number(headerValue);
+  if (!Number.isNaN(seconds)) return Math.max(0, seconds * 1000);
+  const dateMs = Date.parse(headerValue);
+  return Number.isNaN(dateMs) ? null : Math.max(0, dateMs - Date.now());
+}
+
+function isRetryableGroqError(error) {
+  if (!error) return false;
+  if (error.isTimeout) return true;
+  if (typeof error.status === "number") return RETRYABLE_STATUSES.includes(error.status);
+  return error instanceof TypeError;
+}
+
+function isTokenLimitError(status, message, maxTokens) {
+  if (typeof status !== "number" || typeof message !== "string" || maxTokens <= 500) return false;
+  const looksLikeTokenLimit = message.includes("OTPM") || message.includes("limit") || message.includes("max_tokens") || message.includes("Requested");
+  if (!looksLikeTokenLimit) return false;
+  if (status !== 429) return true;
+
+  const limitMatch = message.match(/Limit\s+(\d+)/i);
+  const requestedMatch = message.match(/Requested\s+(\d+)/i);
+  return !!(limitMatch && requestedMatch && parseInt(requestedMatch[1], 10) > parseInt(limitMatch[1], 10));
+}
+
+async function groqFetchOnce(url, options, requestName) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 35000);
+
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    let data = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    if (!response.ok || data?.error) {
+      const message = data?.error?.message
+        || (data?.error ? JSON.stringify(data.error) : `Groq API request failed with status ${response.status}.`);
+      throw createGroqError(message, response.status, parseRetryAfter(response.headers.get("retry-after")));
+    }
+
+    if (data === null) {
+      throw createGroqError("Received an invalid response from the Groq API.", response.status);
+    }
+
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      const timeoutError = createGroqError(`Timeout after 35 seconds for ${requestName}.`, undefined, null, error);
+      timeoutError.isTimeout = true;
+      throw timeoutError;
+    }
+    if (error instanceof TypeError && typeof error.status === "undefined") {
+      error.status = undefined;
+      error.retryAfter = null;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function withGroqRetry(request, onRetry, retryBudget, shouldRetry = () => true) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await request();
+    } catch (error) {
+      if (attempt >= GROQ_MAX_RETRIES || !isRetryableGroqError(error) || !shouldRetry(error)) throw error;
+
+      let waitMs = GROQ_RETRY_DELAYS_MS[attempt];
+      if (typeof error.retryAfter === "number" && error.retryAfter > waitMs) waitMs = error.retryAfter;
+      waitMs += Math.floor(Math.random() * 251);
+
+      if (waitMs > retryBudget.remainingMs) throw error;
+      retryBudget.remainingMs -= waitMs;
+
+      onRetry?.({ attempt: attempt + 1, max: GROQ_MAX_RETRIES, waitMs, status: error.status ?? null });
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+    }
+  }
+}
+
+export async function callGroqWithModel(apiKey, storyText, model, retryPromptSuffix = "", maxTokens = 4096, onRetry = null, retryBudget = { remainingMs: GROQ_RETRY_BUDGET_MS }) {
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
   const userContent = retryPromptSuffix 
@@ -396,52 +494,34 @@ export async function callGroqWithModel(apiKey, storyText, model, retryPromptSuf
     body.reasoning_effort = "low";
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 35000);
-
   try {
-    const response = await fetch(url, {
+    const data = await withGroqRetry(() => groqFetchOnce(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    const data = await response.json();
-
-    if (data.error) {
-      const errMsg = data.error.message || JSON.stringify(data.error);
-      if ((errMsg.includes("OTPM") || errMsg.includes("limit") || errMsg.includes("max_tokens") || errMsg.includes("Requested")) && maxTokens > 500) {
-        const limitMatch = errMsg.match(/Limit\s+(\d+)/i);
-        const lowerTokens = limitMatch ? Math.min(parseInt(limitMatch[1], 10), 950) : 950;
-        console.warn(`Retrying ${model} with reduced max_tokens=${lowerTokens} due to tier limit constraint.`);
-        return await callGroqWithModel(apiKey, storyText, model, retryPromptSuffix, lowerTokens);
-      }
-      throw new Error(errMsg);
-    }
+    }, model), onRetry, retryBudget, error => !isTokenLimitError(error.status, error.message, maxTokens));
 
     return data.choices?.[0]?.message?.content || "";
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err.name === "AbortError") {
-      throw new Error(`Timeout after 35 seconds for model ${model}.`, { cause: err });
+  } catch (error) {
+    if (isTokenLimitError(error.status, error.message, maxTokens)) {
+      const limitMatch = error.message.match(/Limit\s+(\d+)/i);
+      const lowerTokens = limitMatch ? Math.min(parseInt(limitMatch[1], 10), 950) : 950;
+      console.warn(`Retrying ${model} with reduced max_tokens=${lowerTokens} due to tier limit constraint.`);
+      return callGroqWithModel(apiKey, storyText, model, retryPromptSuffix, lowerTokens, onRetry, retryBudget);
     }
-    throw err;
+    throw error;
   }
 }
 
-export async function fetchActiveGroqModels(apiKey) {
+export async function fetchActiveGroqModels(apiKey, onRetry = null) {
   try {
-    const res = await fetch("https://api.groq.com/openai/v1/models", {
+    const retryBudget = { remainingMs: GROQ_RETRY_BUDGET_MS };
+    const data = await withGroqRetry(() => groqFetchOnce("https://api.groq.com/openai/v1/models", {
       headers: { "Authorization": `Bearer ${apiKey}` },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
+    }, "the Groq model list"), onRetry, retryBudget);
     if (!data?.data || !Array.isArray(data.data)) return null;
 
     const excluded = ["whisper", "guard", "embed", "moderation", "tts", "stt", "vision", "compound-mini", "llama3-70b", "llama3-8b"];
@@ -467,8 +547,9 @@ export async function fetchActiveGroqModels(apiKey) {
     ];
 
     return sorted.length > 0 ? sorted : null;
-  } catch (e) {
-    console.warn("Dynamic model query failed:", e);
+  } catch (error) {
+    if (error.status === 401) throw error;
+    console.warn("Dynamic model query failed:", error);
     return null;
   }
 }
@@ -498,7 +579,7 @@ export function splitStoryIntoChunks(storyText, targetWords = 320) {
   return chunks.length > 0 ? chunks : [storyText];
 }
 
-export async function callGroqSingleChunk(apiKey, chunkText, models, knownCharacters = {}) {
+export async function callGroqSingleChunk(apiKey, chunkText, models, knownCharacters = {}, onRetry = null) {
   let charPrompt = "";
   const knownKeys = Object.keys(knownCharacters);
   if (knownKeys.length > 0) {
@@ -507,33 +588,36 @@ export async function callGroqSingleChunk(apiKey, chunkText, models, knownCharac
   }
   const textWithContext = chunkText + charPrompt;
 
+  const retryBudget = { remainingMs: GROQ_RETRY_BUDGET_MS };
   let lastError = null;
+  let lastRetryableError = null;
   for (const model of models) {
     const defaultTokens = model.toLowerCase().includes("qwen") ? 950 : 4096;
     try {
-      const rawText = await callGroqWithModel(apiKey, textWithContext, model, "", defaultTokens);
+      const rawText = await callGroqWithModel(apiKey, textWithContext, model, "", defaultTokens, onRetry, retryBudget);
       try {
         return cleanAndParseJSON(rawText);
       } catch (parseErr) {
         console.warn(`JSON parsing failed with model ${model}, retrying with correction...`, parseErr);
         const retrySuffix = "IMPORTANT: Return ONLY a valid JSON array. Each element MUST be separated by a comma. No markdown wrapping.";
-        const retryRawText = await callGroqWithModel(apiKey, textWithContext, model, retrySuffix, defaultTokens);
+        const retryRawText = await callGroqWithModel(apiKey, textWithContext, model, retrySuffix, defaultTokens, onRetry, retryBudget);
         return cleanAndParseJSON(retryRawText);
       }
-    } catch (err) {
-      console.warn(`Groq model ${model} failed for chunk:`, err.message);
-      lastError = err;
-      if (err.message?.includes("Invalid API key") || err.message?.includes("401") || err.message?.includes("invalid_api_key")) {
-        throw err;
+    } catch (error) {
+      console.warn(`Groq model ${model} failed for chunk:`, error.message);
+      lastError = error;
+      if (isRetryableGroqError(error)) lastRetryableError = error;
+      if (error.status === 401) {
+        throw error;
       }
     }
   }
-  throw lastError || new Error("Failed to analyze scene chunk.");
+  throw lastRetryableError || lastError || new Error("Failed to analyze scene chunk.");
 }
 
-export async function callGroq(apiKey, storyText, onProgress) {
+export async function callGroq(apiKey, storyText, onProgress, onRetry = null) {
   const chunks = splitStoryIntoChunks(storyText, 320);
-  const dynamicModels = await fetchActiveGroqModels(apiKey);
+  const dynamicModels = await fetchActiveGroqModels(apiKey, onRetry);
   const fallbackModels = [
     "llama-3.3-70b-versatile",
     "openai/gpt-oss-120b",
@@ -556,7 +640,7 @@ export async function callGroq(apiKey, storyText, onProgress) {
     }
 
     try {
-      const chunkLines = await callGroqSingleChunk(apiKey, chunks[i], models, knownCharacters);
+      const chunkLines = await callGroqSingleChunk(apiKey, chunks[i], models, knownCharacters, onRetry);
       if (Array.isArray(chunkLines) && chunkLines.length > 0) {
         for (const line of chunkLines) {
           if (line && typeof line.text === "string" && line.text.trim()) {
@@ -569,7 +653,7 @@ export async function callGroq(apiKey, storyText, onProgress) {
       }
     } catch (chunkErr) {
       console.warn(`Chunk ${i + 1} issue:`, chunkErr);
-      if (allLines.length === 0 && i === chunks.length - 1) {
+      if (chunkErr.status === 401 || (allLines.length === 0 && i === chunks.length - 1)) {
         throw chunkErr;
       }
     }

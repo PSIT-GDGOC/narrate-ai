@@ -87,6 +87,15 @@ OUTPUT FORMAT:
 
 export const NARRATION_WORDS_PER_MINUTE = 140;
 
+export const GROQ_RETRY_DELAYS_MS = [1000, 2000, 4000];
+export const GROQ_MAX_RETRIES = GROQ_RETRY_DELAYS_MS.length;
+export const GROQ_RETRY_BUDGET_MS = 30000;
+export const GROQ_ERROR_MESSAGES = {
+  unauthorized: "Invalid API Key. Please double-check your Groq API key at https://console.groq.com/keys",
+  rateLimited: "Rate Limit Exceeded. Please wait a minute and try again.",
+  serviceUnavailable: "Service Unavailable. Please try again shortly.",
+};
+
 export const KEYBOARD_SHORTCUTS = [
   { keys: "Space", action: "Play / Pause" },
   { keys: "R", action: "Reset" },
