@@ -317,13 +317,12 @@ function deduplicateSpeakers(parsedLines) {
   });
 }
 
-// ─── INDIVIDUAL GROQ ATTEMPT ──────────────────────────────────────────────────
-async function callGroqWithModel(apiKey, storyText, model, retryPromptSuffix = "", maxTokens = 4096) {
-  const url = "[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)";
-
-  const userContent = retryPromptSuffix 
-    ? `Analyze this story:\n\n${storyText}\n\n${retryPromptSuffix}`
-    : `Analyze this story:\n\n${storyText}`;
+// ─── INDIVIDUAL GROQ ATTEMPT WITH RETRY & BACKOFF ────────────────────────────
+async function callGroqWithModel(apiKey, storyText, model, retryPromptSuffix = "", maxTokens = 4096, onRetryStatus = null) {
+  const url = "https://api.groq.com/openai/v1/chat/completions";
+  const userContent = retryPromptSuffix
+    ? `${storyText}\n\n${retryPromptSuffix}`
+    : storyText;
 
   const body = {
     model: model,
@@ -340,49 +339,119 @@ async function callGroqWithModel(apiKey, storyText, model, retryPromptSuffix = "
     body.reasoning_effort = "low";
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 35000);
+  const maxRetries = 3;
+  let attempt = 0;
 
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+  while (attempt <= maxRetries) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
 
-    clearTimeout(timeoutId);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
 
-    const data = await response.json();
+      clearTimeout(timeoutId);
 
-    if (data.error) {
-      const errMsg = data.error.message || JSON.stringify(data.error);
-      if ((errMsg.includes("OTPM") || errMsg.includes("limit") || errMsg.includes("max_tokens") || errMsg.includes("Requested")) && maxTokens > 500) {
-        const limitMatch = errMsg.match(/Limit\s+(\d+)/i);
-        const lowerTokens = limitMatch ? Math.min(parseInt(limitMatch[1], 10), 950) : 950;
-        console.warn(`Retrying ${model} with reduced max_tokens=${lowerTokens} due to tier limit constraint.`);
-        return await callGroqWithModel(apiKey, storyText, model, retryPromptSuffix, lowerTokens);
+      // Detect specific HTTP status codes
+      if (response.status === 401) {
+        const err = new Error("Invalid API Key (HTTP 401). Please verify your Groq API key at https://console.groq.com/keys");
+        err.status = 401;
+        throw err;
       }
-      throw new Error(errMsg);
-    }
 
-    return data.choices?.[0]?.message?.content || "";
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err.name === "AbortError") {
-      throw new Error(`Timeout after 35 seconds for model ${model}.`, { cause: err });
+      if (response.status === 429 || response.status >= 500) {
+        const isRateLimit = response.status === 429;
+        const errMessage = isRateLimit
+          ? "Rate Limit Exceeded (HTTP 429). Groq Cloud rate limit reached."
+          : `Service Unavailable (HTTP ${response.status}). Groq Cloud is experiencing temporary overload.`;
+        const err = new Error(errMessage);
+        err.status = response.status;
+
+        if (attempt < maxRetries) {
+          const delaySec = Math.pow(2, attempt); // 1s, 2s, 4s
+          attempt++;
+          if (onRetryStatus) {
+            for (let s = delaySec; s > 0; s--) {
+              onRetryStatus({
+                attempt,
+                maxAttempts: maxRetries,
+                secondsLeft: s,
+                status: response.status,
+                message: isRateLimit ? "Rate limit reached (429)" : `Server error (${response.status})`,
+              });
+              await new Promise(r => setTimeout(r, 1000));
+            }
+            onRetryStatus(null);
+          } else {
+            await new Promise(r => setTimeout(r, delaySec * 1000));
+          }
+          continue;
+        }
+        throw err;
+      }
+
+      const data = await response.json();
+
+      if (data.error) {
+        const errMsg = data.error.message || JSON.stringify(data.error);
+        if ((errMsg.includes("OTPM") || errMsg.includes("limit") || errMsg.includes("max_tokens") || errMsg.includes("Requested")) && maxTokens > 500) {
+          const limitMatch = errMsg.match(/Limit\s+(\d+)/i);
+          const lowerTokens = limitMatch ? Math.min(parseInt(limitMatch[1], 10), 950) : 950;
+          console.warn(`Retrying ${model} with reduced max_tokens=${lowerTokens} due to tier limit constraint.`);
+          return await callGroqWithModel(apiKey, storyText, model, retryPromptSuffix, lowerTokens, onRetryStatus);
+        }
+        throw new Error(errMsg);
+      }
+
+      if (onRetryStatus) onRetryStatus(null);
+      return data.choices?.[0]?.message?.content || "";
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.status === 401) {
+        throw err;
+      }
+
+      const isNetworkOrTimeout = err.name === "AbortError" || err.name === "TypeError" || err.message?.includes("fetch");
+      if (attempt < maxRetries && isNetworkOrTimeout) {
+        const delaySec = Math.pow(2, attempt);
+        attempt++;
+        if (onRetryStatus) {
+          for (let s = delaySec; s > 0; s--) {
+            onRetryStatus({
+              attempt,
+              maxAttempts: maxRetries,
+              secondsLeft: s,
+              status: 0,
+              message: "Network request failed or timed out",
+            });
+            await new Promise(r => setTimeout(r, 1000));
+          }
+          onRetryStatus(null);
+        } else {
+          await new Promise(r => setTimeout(r, delaySec * 1000));
+        }
+        continue;
+      }
+
+      if (err.name === "AbortError") {
+        throw new Error(`Timeout after 35 seconds for model ${model}.`, { cause: err });
+      }
+      throw err;
     }
-    throw err;
   }
 }
 
 // ─── DYNAMIC GROQ MODEL DISCOVERY ─────────────────────────────────────────────
 async function fetchActiveGroqModels(apiKey) {
   try {
-    const res = await fetch("[https://api.groq.com/openai/v1/models](https://api.groq.com/openai/v1/models)", {
+    const res = await fetch("https://api.groq.com/openai/v1/models", {
       headers: { "Authorization": `Bearer ${apiKey}` },
     });
     if (!res.ok) return null;
@@ -484,7 +553,7 @@ function splitStoryIntoChunks(storyText, targetWords = 320) {
 }
 
 // ─── SINGLE CHUNK ANALYZER ───────────────────────────────────────────────────
-async function callGroqSingleChunk(apiKey, chunkText, models, knownCharacters = {}) {
+async function callGroqSingleChunk(apiKey, chunkText, models, knownCharacters = {}, onRetryStatus = null) {
   let charPrompt = "";
   const knownKeys = Object.keys(knownCharacters);
   if (knownKeys.length > 0) {
@@ -497,19 +566,19 @@ async function callGroqSingleChunk(apiKey, chunkText, models, knownCharacters = 
   for (const model of models) {
     const defaultTokens = model.toLowerCase().includes("qwen") ? 950 : 4096;
     try {
-      const rawText = await callGroqWithModel(apiKey, textWithContext, model, "", defaultTokens);
+      const rawText = await callGroqWithModel(apiKey, textWithContext, model, "", defaultTokens, onRetryStatus);
       try {
         return cleanAndParseJSON(rawText);
       } catch (parseErr) {
         console.warn(`JSON parsing failed with model ${model}, retrying with correction...`, parseErr);
         const retrySuffix = "IMPORTANT: Return ONLY a valid JSON array. Each element MUST be separated by a comma. No markdown wrapping.";
-        const retryRawText = await callGroqWithModel(apiKey, textWithContext, model, retrySuffix, defaultTokens);
+        const retryRawText = await callGroqWithModel(apiKey, textWithContext, model, retrySuffix, defaultTokens, onRetryStatus);
         return cleanAndParseJSON(retryRawText);
       }
     } catch (err) {
       console.warn(`Groq model ${model} failed for chunk:`, err.message);
       lastError = err;
-      if (err.message?.includes("Invalid API key") || err.message?.includes("401") || err.message?.includes("invalid_api_key")) {
+      if (err.message?.includes("Invalid API key") || err.message?.includes("401") || err.message?.includes("invalid_api_key") || err.status === 401) {
         throw err;
       }
     }
@@ -518,7 +587,7 @@ async function callGroqSingleChunk(apiKey, chunkText, models, knownCharacters = 
 }
 
 // ─── MASTER GROQ CALL WITH AUTOMATIC SCENE CHUNKING ──────────────────────────
-async function callGroq(apiKey, storyText, onProgress) {
+async function callGroq(apiKey, storyText, onProgress, onRetryStatus = null) {
   const chunks = splitStoryIntoChunks(storyText, 320);
   const dynamicModels = await fetchActiveGroqModels(apiKey);
   const fallbackModels = [
@@ -543,7 +612,7 @@ async function callGroq(apiKey, storyText, onProgress) {
     }
 
     try {
-      const chunkLines = await callGroqSingleChunk(apiKey, chunks[i], models, knownCharacters);
+      const chunkLines = await callGroqSingleChunk(apiKey, chunks[i], models, knownCharacters, onRetryStatus);
       if (Array.isArray(chunkLines) && chunkLines.length > 0) {
         for (const line of chunkLines) {
           if (line && typeof line.text === "string" && line.text.trim()) {
@@ -1412,6 +1481,7 @@ export default function NarrateAI() {
   const [showFinished, setShowFinished]         = useState(false);
   const [loadingStep, setLoadingStep]           = useState("");
   const [chunkProgress, setChunkProgress]       = useState(null);
+  const [retryStatus, setRetryStatus]           = useState(null);
   
   const [history, setHistory]                   = useState(initialState.history);
   const [showWritingPanel, setShowWritingPanel] = useState(true);
@@ -1664,6 +1734,7 @@ export default function NarrateAI() {
     setIsLoading(true);
     setLoadingStep("groq");
     setChunkProgress(null);
+    setRetryStatus(null);
     setError("");
     setParsedLines([]);
     setCharacters([]);
@@ -1671,12 +1742,20 @@ export default function NarrateAI() {
     stopPlayback();
 
     try {
-      const parsed = await callGroq(apiKey.trim(), storyText, (progress) => {
-        setChunkProgress(progress);
-      });
+      const parsed = await callGroq(
+        apiKey.trim(),
+        storyText,
+        (progress) => {
+          setChunkProgress(progress);
+        },
+        (retry) => {
+          setRetryStatus(retry);
+        }
+      );
 
       setLoadingStep("parse");
       setChunkProgress(null);
+      setRetryStatus(null);
 
       const filteredParsed = parsed.filter(line => line && typeof line.text === "string" && line.text.trim() !== "");
       const dedupedParsed = deduplicateSpeakers(filteredParsed);
@@ -1721,14 +1800,19 @@ export default function NarrateAI() {
 
     } catch (err) {
       console.error(err);
-      if (err.message?.includes("Invalid API Key") || err.message?.includes("401") || err.message?.includes("invalid_api_key")) {
-        setError("Invalid API key. Please double-check your Groq API key at [console.groq.com/keys](https://console.groq.com/keys)");
+      if (err.message?.includes("Invalid API Key") || err.message?.includes("401") || err.message?.includes("invalid_api_key") || err.status === 401) {
+        setError("Invalid Groq API key (HTTP 401). Please verify your API key at https://console.groq.com/keys");
+      } else if (err.status === 429 || err.message?.includes("429") || err.message?.includes("Rate limit") || err.message?.includes("Rate Limit")) {
+        setError("Groq API rate limit exceeded (HTTP 429). The system attempted exponential backoff retries, but rate limit remains active. Please wait a minute and try again.");
+      } else if (err.status >= 500 || err.message?.includes("500") || err.message?.includes("503") || err.message?.includes("Service Unavailable")) {
+        setError(`Groq API service temporarily unavailable (${err.status || 503}). Please check your connection or try again shortly.`);
       } else {
         setError(`Analysis failed: ${err.message || "Please check your story and try again."}`);
       }
     } finally {
       setIsLoading(false);
       setLoadingStep("");
+      setRetryStatus(null);
     }
   }
 
@@ -2080,6 +2164,35 @@ export default function NarrateAI() {
                   </span>
                 </div>
               </div>
+
+              {retryStatus && (
+                <div style={{
+                  padding: "12px 16px",
+                  borderRadius: "10px",
+                  background: "rgba(245, 158, 11, 0.12)",
+                  border: "1px solid rgba(245, 158, 11, 0.35)",
+                  color: "#f59e0b",
+                  fontSize: "13px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  lineHeight: "1.5",
+                }}>
+                  <span style={{
+                    width: "14px",
+                    height: "14px",
+                    border: "2px solid rgba(245, 158, 11, 0.4)",
+                    borderTopColor: "#f59e0b",
+                    borderRadius: "50%",
+                    animation: "spin 0.7s linear infinite",
+                    display: "inline-block",
+                    flexShrink: 0,
+                  }} />
+                  <span>
+                    <strong>{retryStatus.message}</strong> — Retrying attempt {retryStatus.attempt} of {retryStatus.maxAttempts} in {retryStatus.secondsLeft}s (exponential backoff)...
+                  </span>
+                </div>
+              )}
 
               {error && <div style={S.errorBox}>⚠ {error}</div>}
 
