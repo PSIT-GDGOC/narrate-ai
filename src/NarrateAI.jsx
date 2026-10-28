@@ -1955,9 +1955,6 @@ export default function NarrateAI() {
               <div style={S.card}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                   <label style={{ ...S.label, marginBottom: 0 }}>Your Story</label>
-                  <span style={{ fontSize: "11px", color: "#64748b" }}>
-                    {`${storyWordCount} words · ${storyCharacterCount} characters · est. ${estimatedNarrationDuration}`}
-                  </span>
                 </div>
                 <textarea
                   value={storyText}
@@ -1966,6 +1963,37 @@ export default function NarrateAI() {
                   rows={12}
                   style={S.textarea}
                 />
+                <div style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "10px",
+                  marginTop: "12px",
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  fontSize: "12px",
+                  color: "#94a3b8",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                      📝 <strong style={{ color: "#f1f5f9" }}>{storyWordCount.toLocaleString()}</strong> words
+                    </span>
+                    <span style={{ color: "rgba(255,255,255,0.15)" }}>•</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                      🔤 <strong style={{ color: "#f1f5f9" }}>{storyCharacterCount.toLocaleString()}</strong> chars
+                    </span>
+                    <span style={{ color: "rgba(255,255,255,0.15)" }}>•</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                      ⏱️ <strong style={{ color: "#a5b4fc" }}>~{estimatedNarrationDuration}</strong> narration
+                    </span>
+                  </div>
+                  <span style={{ fontSize: "11px", color: "#64748b" }}>
+                    @ 140 wpm
+                  </span>
+                </div>
               </div>
 
               {error && <div style={S.errorBox}>⚠ {error}</div>}
