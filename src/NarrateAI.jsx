@@ -1189,7 +1189,7 @@ function HistoryPanel({ history, onLoadItem, onClear }) {
   );
 }
 
-function StoryLine({ line, isActive, colorMap, onClick }) {
+function StoryLine({ line, isActive, colorMap, onClick, activeCharIndex }) {
   const ref = useRef(null);
   const color = colorMap[line.speaker] || NARRATOR_COLOR;
   const isNarrator = line.speaker === "Narrator";
@@ -1200,6 +1200,49 @@ function StoryLine({ line, isActive, colorMap, onClick }) {
       ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [isActive]);
+
+  const renderContent = () => {
+    if (!line.text) return null;
+    if (!isActive || activeCharIndex === null || activeCharIndex === undefined) {
+      return line.text;
+    }
+
+    const segments = line.text.split(/(\s+)/);
+    let runningIndex = 0;
+
+    return segments.map((seg, idx) => {
+      const start = runningIndex;
+      const end = runningIndex + seg.length;
+      runningIndex = end;
+
+      const isSpace = /^\s+$/.test(seg);
+      if (isSpace) {
+        return <span key={idx}>{seg}</span>;
+      }
+
+      const isWordActive = activeCharIndex >= start && activeCharIndex < end;
+
+      return (
+        <span
+          key={idx}
+          style={isWordActive ? {
+            background: color.bg || "rgba(99, 102, 241, 0.3)",
+            color: "#ffffff",
+            borderRadius: "4px",
+            padding: "1px 4px",
+            boxShadow: `0 0 10px ${color.dot || "#6366f1"}`,
+            fontWeight: 600,
+            transition: "all 0.12s ease",
+            display: "inline-block",
+          } : {
+            transition: "all 0.12s ease",
+          }}
+        >
+          {seg}
+        </span>
+      );
+    });
+  };
 
   return (
     <div ref={ref} onClick={onClick} style={{
@@ -1230,7 +1273,7 @@ function StoryLine({ line, isActive, colorMap, onClick }) {
         borderLeft: isThought ? "2px dashed rgba(255, 255, 255, 0.15)" : "none",
         paddingLeft: isThought ? "8px" : "0",
       }}>
-        {line.text}
+        {renderContent()}
       </div>
     </div>
   );
@@ -1412,6 +1455,7 @@ export default function NarrateAI() {
   const [showFinished, setShowFinished]         = useState(false);
   const [loadingStep, setLoadingStep]           = useState("");
   const [chunkProgress, setChunkProgress]       = useState(null);
+  const [activeWordCharIndex, setActiveWordCharIndex] = useState(null);
   
   const [history, setHistory]                   = useState(initialState.history);
   const [showWritingPanel, setShowWritingPanel] = useState(true);
@@ -1761,6 +1805,7 @@ export default function NarrateAI() {
     const line = lines[index];
     indexRef.current = index;
     setCurrentIndex(index);
+    setActiveWordCharIndex(null);
     const emotionParams = EMOTION_PARAMS[line.emotion] || EMOTION_PARAMS.neutral;
     const vp = line.voiceProfile || { pitch: 1.0, rate: 1.0 };
     const assignedVoiceData = voices[line.speaker];
@@ -1793,15 +1838,18 @@ export default function NarrateAI() {
 
     const chunks = splitLineIntoChunks(line.text, 150);
     let chunkIndex = 0;
+    let currentChunkOffset = 0;
 
     const speakNextChunk = () => {
       if (!playingRef.current || generation !== generationRef.current) {
         cleanupWatchdog();
+        setActiveWordCharIndex(null);
         return;
       }
 
       if (chunkIndex >= chunks.length) {
         cleanupWatchdog();
+        setActiveWordCharIndex(null);
         if (playingRef.current && generation === generationRef.current) {
           playLine(index + 1);
         }
@@ -1809,6 +1857,10 @@ export default function NarrateAI() {
       }
 
       const chunkText = chunks[chunkIndex];
+      const chunkOffset = line.text.indexOf(chunkText, currentChunkOffset);
+      if (chunkOffset !== -1) {
+        currentChunkOffset = chunkOffset + chunkText.length;
+      }
       chunkIndex += 1;
 
       const utt = new SpeechSynthesisUtterance(chunkText);
@@ -1818,6 +1870,14 @@ export default function NarrateAI() {
       utt.pitch  = Math.min(2.0, Math.max(0.1, vp.pitch * emotionParams.pitch));
       utt.rate   = Math.min(3.0, Math.max(0.1, vp.rate * emotionParams.rate * speedRef.current));
       utt.volume = emotionParams.volume;
+
+      utt.onboundary = (e) => {
+        if (!playingRef.current || generation !== generationRef.current) return;
+        if (e.name === "word" || !e.name) {
+          const baseOffset = chunkOffset !== -1 ? chunkOffset : 0;
+          setActiveWordCharIndex(baseOffset + (typeof e.charIndex === "number" ? e.charIndex : 0));
+        }
+      };
 
       utt.onend = () => {
         speakNextChunk();
@@ -1847,6 +1907,7 @@ export default function NarrateAI() {
   function stopPlayback() {
     generationRef.current += 1;
     playingRef.current = false;
+    setActiveWordCharIndex(null);
     if (watchdogIntervalRef.current) {
       clearInterval(watchdogIntervalRef.current);
       watchdogIntervalRef.current = null;
@@ -1862,6 +1923,7 @@ export default function NarrateAI() {
 
   function pausePlayback() {
     playingRef.current = false;
+    setActiveWordCharIndex(null);
     if (watchdogIntervalRef.current) {
       clearInterval(watchdogIntervalRef.current);
       watchdogIntervalRef.current = null;
@@ -1885,6 +1947,7 @@ export default function NarrateAI() {
   function skipForward() {
     if (currentIndex < parsedLines.length - 1) {
       const nextIdx = currentIndex + 1;
+      setActiveWordCharIndex(null);
       setCurrentIndex(nextIdx);
       indexRef.current = nextIdx;
       if (isPlaying) {
@@ -1896,6 +1959,7 @@ export default function NarrateAI() {
   function skipBackward() {
     if (currentIndex > 0) {
       const prevIdx = currentIndex - 1;
+      setActiveWordCharIndex(null);
       setCurrentIndex(prevIdx);
       indexRef.current = prevIdx;
       if (isPlaying) {
@@ -2190,7 +2254,14 @@ export default function NarrateAI() {
                     boxShadow: "inset 0 2px 8px rgba(0,0,0,0.3)",
                   }}>
                     {parsedLines.map((line, i) => (
-                      <StoryLine key={i} line={line} isActive={i === currentIndex} colorMap={colorMap} onClick={() => startPlayback(i)} />
+                      <StoryLine
+                        key={i}
+                        line={line}
+                        isActive={i === currentIndex}
+                        activeCharIndex={i === currentIndex ? activeWordCharIndex : null}
+                        colorMap={colorMap}
+                        onClick={() => startPlayback(i)}
+                      />
                     ))}
                   </div>
                 </div>
