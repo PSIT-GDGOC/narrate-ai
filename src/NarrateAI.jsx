@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
@@ -98,7 +99,7 @@ const KEYBOARD_SHORTCUTS = [
 ];
 
 // ─── HELPER FOR ROBUST JSON EXTRACTION ────────────────────────────────────────
-function cleanAndParseJSON(rawText) {
+export function cleanAndParseJSON(rawText) {
   if (!rawText || typeof rawText !== "string") {
     throw new Error("Empty response received from AI model.");
   }
@@ -205,7 +206,7 @@ function cleanAndParseJSON(rawText) {
   throw new Error("Unable to parse AI story analysis. The AI returned an unparseable response.");
 }
 
-function formatNarrationDuration(wordCount) {
+export function formatNarrationDuration(wordCount) {
   if (!wordCount) return "0 sec";
 
   const totalSeconds = Math.ceil((wordCount / NARRATION_WORDS_PER_MINUTE) * 60);
@@ -225,7 +226,7 @@ function formatNarrationDuration(wordCount) {
 }
 
 // ─── CHROME TTS LONG LINE CHUNKER (~150 chars boundary) ──────────────────────
-function splitLineIntoChunks(text, maxChars = 150) {
+export function splitLineIntoChunks(text, maxChars = 150) {
   if (!text || typeof text !== "string") return [];
   const trimmed = text.trim();
   if (trimmed.length <= maxChars) return [trimmed];
@@ -284,7 +285,7 @@ function splitLineIntoChunks(text, maxChars = 150) {
 }
 
 // ─── FUZZY SPEAKER DEDUPLICATION ──────────────────────────────────────────────
-function deduplicateSpeakers(parsedLines) {
+export function deduplicateSpeakers(parsedLines) {
   const speakers = Array.from(new Set(parsedLines.map(l => l.speaker))).filter(s => s !== "Narrator");
   const aliasMap = {};
   
@@ -570,7 +571,7 @@ async function callGroq(apiKey, storyText, onProgress) {
 }
 
 // ─── VOICE ASSIGNMENT ENGINE ──────────────────────────────────────────────────
-function classifyPersona(persona = "") {
+export function classifyPersona(persona = "") {
   const p = persona.toLowerCase();
   const isFemale = FEMALE_HINTS.some(h => p.includes(h));
   const isMale   = MALE_HINTS.some(h => p.includes(h));
@@ -588,7 +589,7 @@ function isProblematicVoice(voice) {
   return problematic.some(p => name.includes(p));
 }
 
-function scoreVoice(voice, traits) {
+export function scoreVoice(voice, traits) {
   if (isProblematicVoice(voice)) return -1000;
   
   const name = (voice.name + " " + voice.lang).toLowerCase();
@@ -641,7 +642,7 @@ function resolveSpeechVoice(assignedVoiceData, voicePool) {
   return null;
 }
 
-function assignVoices(characters, availableVoices) {
+export function assignVoices(characters, availableVoices) {
   const safeVoices = availableVoices.filter(v => !isProblematicVoice(v));
   
   const qualityPool = safeVoices.filter(v => {
