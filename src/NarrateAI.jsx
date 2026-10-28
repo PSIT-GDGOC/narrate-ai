@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Header from "./components/Header";
 import ApiKeyPanel from "./components/ApiKeyPanel";
 import EmptyState from "./components/EmptyState";
+import RetryBanner from "./components/RetryBanner";
 import VoiceQualityBanner from "./components/VoiceQualityBanner";
 import CharacterPanel from "./components/CharacterPanel";
 import StoryLine from "./components/StoryLine";
@@ -11,7 +12,7 @@ import HistoryPanel from "./components/HistoryPanel";
 import ShortcutsModal from "./components/ShortcutsModal";
 import useSpeechSynthesis from "./hooks/useSpeechSynthesis";
 import { S } from "./constants/styles";
-import { SAMPLE_STORY, KEYBOARD_SHORTCUTS } from "./constants/storyConstants";
+import { GROQ_ERROR_MESSAGES, SAMPLE_STORY, KEYBOARD_SHORTCUTS } from "./constants/storyConstants";
 import {
   cleanAndParseJSON,
   formatNarrationDuration,
@@ -123,6 +124,7 @@ export default function NarrateAI() {
   const [error, setError]                       = useState("");
   const [loadingStep, setLoadingStep]           = useState("");
   const [chunkProgress, setChunkProgress]       = useState(null);
+  const [retryInfo, setRetryInfo]               = useState(null);
   
   const [history, setHistory]                   = useState(initialState.history);
   const [showWritingPanel, setShowWritingPanel] = useState(true);
@@ -305,6 +307,7 @@ export default function NarrateAI() {
     setIsLoading(true);
     setLoadingStep("groq");
     setChunkProgress(null);
+    setRetryInfo(null);
     setError("");
     setParsedLines([]);
     setCharacters([]);
@@ -314,10 +317,14 @@ export default function NarrateAI() {
     try {
       const parsed = await callGroq(apiKey.trim(), storyText, (progress) => {
         setChunkProgress(progress);
+        setRetryInfo(null);
+      }, (info) => {
+        setRetryInfo({ ...info, until: Date.now() + info.waitMs });
       });
 
       setLoadingStep("parse");
       setChunkProgress(null);
+      setRetryInfo(null);
 
       const filteredParsed = parsed.filter(line => line && typeof line.text === "string" && line.text.trim() !== "");
       const dedupedParsed = deduplicateSpeakers(filteredParsed);
@@ -360,14 +367,20 @@ export default function NarrateAI() {
 
     } catch (err) {
       console.error(err);
-      if (err.message?.includes("Invalid API Key") || err.message?.includes("401") || err.message?.includes("invalid_api_key")) {
-        setError("Invalid API key. Please double-check your Groq API key at console.groq.com/keys");
+      setRetryInfo(null);
+      if (err.status === 401) {
+        setError(GROQ_ERROR_MESSAGES.unauthorized);
+      } else if (err.status === 429) {
+        setError(GROQ_ERROR_MESSAGES.rateLimited);
+      } else if (err.status === 503) {
+        setError(GROQ_ERROR_MESSAGES.serviceUnavailable);
       } else {
         setError(`Analysis failed: ${err.message || "Please check your story and try again."}`);
       }
     } finally {
       setIsLoading(false);
       setLoadingStep("");
+      setRetryInfo(null);
     }
   }
 
@@ -430,7 +443,7 @@ export default function NarrateAI() {
                 />
               </div>
 
-              {error && <div style={S.errorBox}>⚠ {error}</div>}
+              <RetryBanner error={error} retryInfo={isLoading ? retryInfo : null} />
 
               <div style={{ display: "flex", gap: "10px" }}>
                 <button
