@@ -1924,6 +1924,64 @@ export default function NarrateAI() {
   const storyCharacterCount = storyText.length;
   const estimatedNarrationDuration = formatNarrationDuration(storyWordCount);
 
+  function downloadExportFile(content, filename, contentType) {
+    if (typeof window === "undefined") return;
+    const blob = new Blob([content], { type: contentType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportAsJSON() {
+    if (!parsedLines || parsedLines.length === 0) return;
+    const exportPayload = {
+      title: "NarrateAI Audiobook Script",
+      exportedAt: new Date().toISOString(),
+      totalLines: parsedLines.length,
+      characters: characters || [],
+      voiceAssignments: Object.entries(voiceAssignments || {}).reduce((acc, [speaker, voiceObj]) => {
+        acc[speaker] = { name: voiceObj?.name, lang: voiceObj?.lang };
+        return acc;
+      }, {}),
+      lines: parsedLines.map(line => ({
+        speaker: line.speaker,
+        emotion: line.emotion || "neutral",
+        isThought: !!line.isThought,
+        text: line.text,
+        voiceProfile: line.voiceProfile || { pitch: 1.0, rate: 1.0 },
+      })),
+    };
+    downloadExportFile(JSON.stringify(exportPayload, null, 2), "narrateai-script.json", "application/json");
+  }
+
+  function exportAsTranscript() {
+    if (!parsedLines || parsedLines.length === 0) return;
+    const header = `# NarrateAI Story Transcript\nExported: ${new Date().toLocaleString()}\n\n`;
+    const charSection = characters && characters.length > 0
+      ? `## Characters\n` + characters.map(c => `- **${c.speaker}**: ${c.persona || "Narrator/Character"}`).join("\n") + "\n\n---\n\n"
+      : "---\n\n";
+
+    const linesSection = `## Screenplay\n\n` + parsedLines.map((line) => {
+      const emotion = line.emotion ? ` (${line.emotion})` : "";
+      const isNarrator = line.speaker === "Narrator";
+      if (isNarrator) {
+        return `[Narrator]${emotion}\n${line.text}\n`;
+      }
+      if (line.isThought) {
+        return `**${line.speaker.toUpperCase()}**${emotion} *(thought)*:\n*(${line.text})*\n`;
+      }
+      return `**${line.speaker.toUpperCase()}**${emotion}:\n"${line.text}"\n`;
+    }).join("\n");
+
+    const fullText = header + charSection + linesSection;
+    downloadExportFile(fullText, "narrateai-transcript.md", "text/markdown");
+  }
+
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div style={S.page}>
@@ -2130,13 +2188,58 @@ export default function NarrateAI() {
                   <div style={{
                     display: "flex", alignItems: "center", gap: "10px",
                     paddingBottom: "12px",
-                    borderBottom: "1px solid rgba(255,255,255,0.05)"
+                    borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    flexWrap: "wrap",
                   }}>
                     <span style={{ fontSize: "16px" }}>🎙️</span>
-                    <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#f1f5f9", flex: 1 }}>Playback Studio</h2>
+                    <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#f1f5f9", flex: 1, minWidth: "120px" }}>Playback Studio</h2>
                     <span style={{ fontSize: "11px", color: "#64748b", background: "rgba(99,102,241,0.1)", padding: "4px 10px", borderRadius: "6px", fontWeight: 600 }}>
                       {parsedLines.length} lines
                     </span>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                      <button
+                        type="button"
+                        onClick={exportAsJSON}
+                        title="Export structured JSON script with characters and emotion tags (.json)"
+                        style={{
+                          padding: "4px 10px",
+                          borderRadius: "6px",
+                          border: "1px solid rgba(99,102,241,0.3)",
+                          background: "rgba(99,102,241,0.12)",
+                          color: "#a5b4fc",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        📥 Export JSON
+                      </button>
+                      <button
+                        type="button"
+                        onClick={exportAsTranscript}
+                        title="Export formatted screenplay transcript (.md)"
+                        style={{
+                          padding: "4px 10px",
+                          borderRadius: "6px",
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.06)",
+                          color: "#cbd5e1",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        📄 Export Transcript
+                      </button>
+                    </div>
                   </div>
 
                   <VoiceQualityBanner availableVoices={availableVoices} />
@@ -2156,7 +2259,7 @@ export default function NarrateAI() {
                       <p style={{ fontSize: "13px", color: "#94a3b8", marginBottom: "18px", lineHeight: 1.6 }}>
                         You've finished listening to <strong>{parsedLines.length}</strong> lines voiced by <strong>{characters.length}</strong> unique characters.
                       </p>
-                      <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                      <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
                         <button onClick={() => startPlayback(0)} style={{
                           padding: "10px 20px", borderRadius: "10px", border: "none",
                           background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)", color: "#fff",
@@ -2168,6 +2271,16 @@ export default function NarrateAI() {
                           background: "rgba(255,255,255,0.05)", color: "#94a3b8",
                           fontSize: "12px", fontWeight: 600, cursor: "pointer",
                         }}>Edit Story</button>
+                        <button onClick={exportAsJSON} style={{
+                          padding: "10px 18px", borderRadius: "10px", border: "1px solid rgba(99,102,241,0.3)",
+                          background: "rgba(99,102,241,0.12)", color: "#a5b4fc",
+                          fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                        }}>📥 Export JSON</button>
+                        <button onClick={exportAsTranscript} style={{
+                          padding: "10px 18px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.05)", color: "#cbd5e1",
+                          fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                        }}>📄 Export Transcript</button>
                       </div>
                     </div>
                   )}
