@@ -57,6 +57,7 @@ RULES:
 - persona: 4-6 descriptive words about the character (e.g. "wise elderly masculine gruff calm" or "energetic young feminine high-pitched fast"). Capture gender, age, vocal traits, and personality to help the voice assignment engine.
 - voiceProfile pitch: between 0.6 and 1.8 (1.0 = normal, higher = lighter/higher voice).
 - voiceProfile rate: between 0.8 and 1.3 (1.0 = normal speed).
+- Identify the story language and set "language" to its 2-letter ISO 639-1 code (e.g. "en", "es", "fr", "de", "hi", "it", "ja", "zh").
 - Make voice profiles VERY distinctly different between characters.
 - Return ONLY a valid JSON array. No explanation, no markdown fences, no preamble whatsoever.
 
@@ -67,6 +68,7 @@ OUTPUT FORMAT:
     "text": "The old man walked slowly.",
     "emotion": "neutral",
     "isThought": false,
+    "language": "en",
     "persona": "calm measured eloquent narrative voice",
     "voiceProfile": { "pitch": 1.0, "rate": 0.95 }
   },
@@ -75,6 +77,7 @@ OUTPUT FORMAT:
     "text": "You shall not pass!",
     "emotion": "angry",
     "isThought": false,
+    "language": "en",
     "persona": "wise elderly masculine commanding gruff",
     "voiceProfile": { "pitch": 0.75, "rate": 0.9 }
   },
@@ -83,6 +86,7 @@ OUTPUT FORMAT:
     "text": "How will we ever get past the gate?",
     "emotion": "fearful",
     "isThought": true,
+    "language": "en",
     "persona": "brave young hobbit anxious masculine",
     "voiceProfile": { "pitch": 1.1, "rate": 1.05 }
   }
@@ -641,18 +645,38 @@ function resolveSpeechVoice(assignedVoiceData, voicePool) {
   return null;
 }
 
-function assignVoices(characters, availableVoices) {
+function assignVoices(characters, availableVoices, targetLanguage = "en") {
   const safeVoices = availableVoices.filter(v => !isProblematicVoice(v));
-  
-  const qualityPool = safeVoices.filter(v => {
+  const langPrefix = (targetLanguage || "en").toLowerCase().slice(0, 2);
+
+  // 1. High-quality neural/natural voices in target language locale
+  const qualityTargetPool = safeVoices.filter(v => {
     const name = v.name.toLowerCase();
-    return v.lang.startsWith("en") && 
+    const lang = (v.lang || "").toLowerCase();
+    return lang.startsWith(langPrefix) &&
            (name.includes("online") || name.includes("neural") || name.includes("natural"));
   });
-  
-  const englishPool = safeVoices.filter(v => v.lang.startsWith("en"));
-  const pool = qualityPool.length > 0 ? qualityPool : (englishPool.length > 0 ? englishPool : safeVoices);
-  
+
+  // 2. All available voices in target language locale
+  const targetLangPool = safeVoices.filter(v => (v.lang || "").toLowerCase().startsWith(langPrefix));
+
+  // 3. Fallback pools: English quality, English all, or general safe voices
+  const englishQualityPool = safeVoices.filter(v => {
+    const name = v.name.toLowerCase();
+    return (v.lang || "").toLowerCase().startsWith("en") &&
+           (name.includes("online") || name.includes("neural") || name.includes("natural"));
+  });
+  const englishPool = safeVoices.filter(v => (v.lang || "").toLowerCase().startsWith("en"));
+
+  // Prioritize target language locale; fallback gracefully if not installed
+  const pool = qualityTargetPool.length > 0
+    ? qualityTargetPool
+    : (targetLangPool.length > 0
+      ? targetLangPool
+      : (englishQualityPool.length > 0
+        ? englishQualityPool
+        : (englishPool.length > 0 ? englishPool : safeVoices)));
+
   if (pool.length === 0) return {};
 
   const assignments = {};
@@ -1412,6 +1436,7 @@ export default function NarrateAI() {
   const [showFinished, setShowFinished]         = useState(false);
   const [loadingStep, setLoadingStep]           = useState("");
   const [chunkProgress, setChunkProgress]       = useState(null);
+  const [storyLanguage, setStoryLanguage]       = useState("en");
   
   const [history, setHistory]                   = useState(initialState.history);
   const [showWritingPanel, setShowWritingPanel] = useState(true);
@@ -1693,9 +1718,15 @@ export default function NarrateAI() {
       }
       const chars = Object.entries(charMap).map(([speaker, persona]) => ({ speaker, persona }));
 
+      const detectedLang = dedupedParsed.find(l => l && (l.language || l.lang))?.language
+        || dedupedParsed.find(l => l && (l.language || l.lang))?.lang
+        || "en";
+      const cleanLang = typeof detectedLang === "string" ? detectedLang.toLowerCase().trim().slice(0, 2) : "en";
+      setStoryLanguage(cleanLang);
+
       const voices = synthRef.current ? synthRef.current.getVoices() : [];
       const pool = voices.length > 0 ? voices : availableVoices;
-      const assignments = assignVoices(chars, pool);
+      const assignments = assignVoices(chars, pool, cleanLang);
       const cMap = buildColorMap(dedupedParsed);
 
       setParsedLines(dedupedParsed);
@@ -2134,6 +2165,9 @@ export default function NarrateAI() {
                   }}>
                     <span style={{ fontSize: "16px" }}>🎙️</span>
                     <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#f1f5f9", flex: 1 }}>Playback Studio</h2>
+                    <span style={{ fontSize: "11px", color: "#818cf8", background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)", padding: "4px 10px", borderRadius: "6px", fontWeight: 600 }}>
+                      🌐 {storyLanguage.toUpperCase()}
+                    </span>
                     <span style={{ fontSize: "11px", color: "#64748b", background: "rgba(99,102,241,0.1)", padding: "4px 10px", borderRadius: "6px", fontWeight: 600 }}>
                       {parsedLines.length} lines
                     </span>
