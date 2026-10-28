@@ -695,12 +695,33 @@ function resolveVoiceAssignments(voiceAssignments, availableVoices) {
   let changed = false;
 
   for (const [speaker, voiceData] of Object.entries(voiceAssignments)) {
+    if (!voiceData) continue;
     const actualVoice = resolveSpeechVoice(voiceData, pool);
+    const customPitch = typeof voiceData?.pitch === "number" ? voiceData.pitch : undefined;
+    const customRate = typeof voiceData?.rate === "number" ? voiceData.rate : undefined;
+    const isCustom = Boolean(voiceData?.isCustom);
+
     if (actualVoice && !isProblematicVoice(actualVoice)) {
-      resolved[speaker] = actualVoice;
+      resolved[speaker] = {
+        voice: actualVoice,
+        name: actualVoice.name,
+        lang: actualVoice.lang,
+        voiceURI: actualVoice.voiceURI,
+        ...(customPitch !== undefined ? { pitch: customPitch } : {}),
+        ...(customRate !== undefined ? { rate: customRate } : {}),
+        isCustom,
+      };
       if (actualVoice !== voiceData) changed = true;
     } else if (pool.length > 0) {
-      resolved[speaker] = pool[0];
+      resolved[speaker] = {
+        voice: pool[0],
+        name: pool[0].name,
+        lang: pool[0].lang,
+        voiceURI: pool[0].voiceURI,
+        ...(customPitch !== undefined ? { pitch: customPitch } : {}),
+        ...(customRate !== undefined ? { rate: customRate } : {}),
+        isCustom,
+      };
       changed = true;
     }
   }
@@ -992,9 +1013,403 @@ function VoiceQualityBanner({ availableVoices }) {
   );
 }
 
-// ─── CHARACTER PANEL (read-only, auto-assigned voices) ───────────────────────────
-function CharacterPanel({ characters, colorMap, voiceAssignments }) {
+// ─── VOICE CUSTOMIZER MODAL / OVERRIDE STUDIO ──────────────────────────────────
+function VoiceCustomizerModal({
+  character,
+  currentAssignment,
+  availableVoices = [],
+  color = NARRATOR_COLOR,
+  onClose,
+  onSave,
+  onReset,
+}) {
+  const safeVoices = useMemo(() => {
+    const list = availableVoices.filter(v => !isProblematicVoice(v));
+    return list.length > 0 ? list : availableVoices;
+  }, [availableVoices]);
+
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState(() => {
+    if (!currentAssignment) return safeVoices[0]?.voiceURI || safeVoices[0]?.name || "";
+    const match = safeVoices.find(
+      v => v.name === currentAssignment.name || v.voiceURI === currentAssignment.voiceURI || (currentAssignment.name && v.name.includes(currentAssignment.name))
+    );
+    return match ? (match.voiceURI || match.name) : (safeVoices[0]?.voiceURI || safeVoices[0]?.name || "");
+  });
+
+  const [pitch, setPitch] = useState(() => {
+    return typeof currentAssignment?.pitch === "number" ? currentAssignment.pitch : 1.0;
+  });
+
+  const [rate, setRate] = useState(() => {
+    return typeof currentAssignment?.rate === "number" ? currentAssignment.rate : 1.0;
+  });
+
+  const [isTesting, setIsTesting] = useState(false);
+  const [testText, setTestText] = useState(
+    `Hello! I am ${character?.speaker || "Narrator"}, and this is how my voice sounds in NarrateAI.`
+  );
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        if (typeof window !== "undefined" && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [onClose]);
+
+  const handleTestVoice = () => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+
+    if (isTesting) {
+      window.speechSynthesis.cancel();
+      setIsTesting(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(testText);
+    const chosenVoice = safeVoices.find(v => (v.voiceURI || v.name) === selectedVoiceURI) || safeVoices[0];
+    if (chosenVoice) {
+      utt.voice = chosenVoice;
+    }
+    utt.pitch = Math.min(2.0, Math.max(0.5, pitch));
+    utt.rate = Math.min(2.0, Math.max(0.5, rate));
+
+    utt.onend = () => setIsTesting(false);
+    utt.onerror = () => setIsTesting(false);
+
+    setIsTesting(true);
+    window.speechSynthesis.speak(utt);
+  };
+
+  const handleSave = () => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    const chosenVoice = safeVoices.find(v => (v.voiceURI || v.name) === selectedVoiceURI) || safeVoices[0];
+    onSave(character.speaker, {
+      name: chosenVoice?.name || "",
+      lang: chosenVoice?.lang || "",
+      voiceURI: chosenVoice?.voiceURI || chosenVoice?.name || "",
+      pitch: Number(pitch),
+      rate: Number(rate),
+      isCustom: true,
+    });
+    onClose();
+  };
+
+  const handleReset = () => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    onReset(character.speaker);
+    onClose();
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="customizer-title"
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "rgba(10, 10, 20, 0.78)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        padding: "20px",
+        animation: "fadeIn 0.2s ease-out",
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          if (typeof window !== "undefined" && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+          }
+          onClose();
+        }
+      }}
+    >
+      <div style={{
+        background: "linear-gradient(145deg, #18192b 0%, #111222 100%)",
+        border: "1px solid rgba(255, 255, 255, 0.12)",
+        borderRadius: "20px",
+        boxShadow: "0 24px 64px rgba(0, 0, 0, 0.7), 0 0 32px rgba(99, 102, 241, 0.15)",
+        maxWidth: "520px",
+        width: "100%",
+        maxHeight: "90vh",
+        overflowY: "auto",
+        padding: "26px",
+        color: "#e2e8f0",
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "18px" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+              <div style={{
+                width: "12px", height: "12px", borderRadius: "50%",
+                background: color.dot, boxShadow: `0 0 10px ${color.dot}`,
+              }} />
+              <h2 id="customizer-title" style={{ margin: 0, fontSize: "19px", fontWeight: 800, color: "#f8fafc" }}>
+                Voice Customizer
+              </h2>
+            </div>
+            <div style={{ fontSize: "13px", color: "#94a3b8" }}>
+              Customizing voice for <strong style={{ color: color.text }}>{character.speaker}</strong>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined" && window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+              }
+              onClose();
+            }}
+            aria-label="Close customizer"
+            style={{
+              background: "rgba(255, 255, 255, 0.08)",
+              border: "1px solid rgba(255, 255, 255, 0.12)",
+              borderRadius: "10px",
+              padding: "6px 12px",
+              color: "#94a3b8",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: 700,
+              transition: "all 0.2s",
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Persona Pill */}
+        {character.persona && (
+          <div style={{
+            padding: "10px 14px",
+            borderRadius: "10px",
+            background: "rgba(255, 255, 255, 0.03)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+            fontSize: "12px",
+            color: "#94a3b8",
+            marginBottom: "20px",
+            fontStyle: "italic",
+          }}>
+            🎭 Persona: &ldquo;{character.persona}&rdquo;
+          </div>
+        )}
+
+        {/* Voice Selector Dropdown */}
+        <div style={{ marginBottom: "20px" }}>
+          <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#cbd5e1", marginBottom: "8px" }}>
+            🎙️ System Voice ({safeVoices.length} available)
+          </label>
+          <select
+            value={selectedVoiceURI}
+            onChange={e => setSelectedVoiceURI(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              borderRadius: "10px",
+              background: "rgba(15, 17, 30, 0.9)",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              color: "#f8fafc",
+              fontSize: "13px",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          >
+            {safeVoices.map(v => (
+              <option key={v.voiceURI || v.name} value={v.voiceURI || v.name} style={{ background: "#1a1b2e", color: "#f8fafc" }}>
+                {v.name} ({v.lang}){v.default ? " — System Default" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Pitch Slider */}
+        <div style={{ marginBottom: "20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <label style={{ fontSize: "12px", fontWeight: 700, color: "#cbd5e1" }}>
+              🎵 Pitch: <span style={{ color: "#818cf8", fontWeight: 800 }}>{Number(pitch).toFixed(2)}x</span>
+            </label>
+            <span style={{ fontSize: "11px", color: "#64748b" }}>Range: 0.5x – 2.0x</span>
+          </div>
+          <input
+            type="range"
+            min="0.5"
+            max="2.0"
+            step="0.05"
+            value={pitch}
+            onChange={e => setPitch(parseFloat(e.target.value))}
+            style={{ width: "100%", accentColor: "#6366f1", cursor: "pointer" }}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "#64748b", marginTop: "4px" }}>
+            <span>0.5x (Deeper / Gruff)</span>
+            <span>1.0x (Normal)</span>
+            <span>2.0x (Higher / Youthful)</span>
+          </div>
+        </div>
+
+        {/* Rate Slider */}
+        <div style={{ marginBottom: "20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <label style={{ fontSize: "12px", fontWeight: 700, color: "#cbd5e1" }}>
+              ⚡ Rate (Speed): <span style={{ color: "#38bdf8", fontWeight: 800 }}>{Number(rate).toFixed(2)}x</span>
+            </label>
+            <span style={{ fontSize: "11px", color: "#64748b" }}>Range: 0.5x – 2.0x</span>
+          </div>
+          <input
+            type="range"
+            min="0.5"
+            max="2.0"
+            step="0.05"
+            value={rate}
+            onChange={e => setRate(parseFloat(e.target.value))}
+            style={{ width: "100%", accentColor: "#38bdf8", cursor: "pointer" }}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "#64748b", marginTop: "4px" }}>
+            <span>0.5x (Slower)</span>
+            <span>1.0x (Normal)</span>
+            <span>2.0x (Faster)</span>
+          </div>
+        </div>
+
+        {/* Test Voice Section */}
+        <div style={{
+          padding: "16px",
+          borderRadius: "12px",
+          background: "rgba(99, 102, 241, 0.06)",
+          border: "1px solid rgba(99, 102, 241, 0.2)",
+          marginBottom: "24px",
+        }}>
+          <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#cbd5e1", marginBottom: "6px" }}>
+            Preview Speech
+          </label>
+          <input
+            type="text"
+            value={testText}
+            onChange={e => setTestText(e.target.value)}
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "8px 12px",
+              borderRadius: "8px",
+              background: "rgba(0, 0, 0, 0.3)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              color: "#f8fafc",
+              fontSize: "12px",
+              marginBottom: "10px",
+              outline: "none",
+            }}
+          />
+          <button
+            onClick={handleTestVoice}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              background: isTesting ? "#ef4444" : "rgba(99, 102, 241, 0.2)",
+              border: `1px solid ${isTesting ? "#ef4444" : "#6366f1"}`,
+              color: "#fff",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            {isTesting ? "⏹️ Stop Preview" : "🔊 Test Voice"}
+          </button>
+        </div>
+
+        {/* Footer Actions */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+          <button
+            onClick={handleReset}
+            style={{
+              padding: "10px 14px",
+              borderRadius: "10px",
+              background: "transparent",
+              border: "1px solid rgba(255, 255, 255, 0.12)",
+              color: "#94a3b8",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Reset Default
+          </button>
+
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              onClick={() => {
+                if (typeof window !== "undefined" && window.speechSynthesis) {
+                  window.speechSynthesis.cancel();
+                }
+                onClose();
+              }}
+              style={{
+                padding: "10px 16px",
+                borderRadius: "10px",
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                color: "#cbd5e1",
+                fontSize: "12px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              style={{
+                padding: "10px 20px",
+                borderRadius: "10px",
+                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                border: "none",
+                color: "#fff",
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: "pointer",
+                boxShadow: "0 4px 16px rgba(99, 102, 241, 0.4)",
+              }}
+            >
+              Apply Voice
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CHARACTER PANEL (with interactive voice customization) ────────────────────
+function CharacterPanel({
+  characters,
+  colorMap,
+  voiceAssignments,
+  availableVoices = [],
+  onUpdateVoiceAssignment,
+  onResetVoiceAssignment,
+}) {
   const [expandedChar, setExpandedChar] = useState(null);
+  const [customizingChar, setCustomizingChar] = useState(null);
 
   if (!characters.length) return null;
 
@@ -1026,6 +1441,19 @@ function CharacterPanel({ characters, colorMap, voiceAssignments }) {
                 <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 800, color: "#f1f5f9" }}>
                   {expandedChar.speaker}
                 </h3>
+                {voiceAssignments[expandedChar.speaker]?.isCustom && (
+                  <span style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    padding: "2px 8px",
+                    borderRadius: "10px",
+                    background: "rgba(99, 102, 241, 0.25)",
+                    border: "1px solid #6366f1",
+                    color: "#a5b4fc",
+                  }}>
+                    ✨ Customized
+                  </span>
+                )}
               </div>
               
               <p style={{
@@ -1044,7 +1472,36 @@ function CharacterPanel({ characters, colorMap, voiceAssignments }) {
                 borderLeft: `3px solid ${colorMap[expandedChar.speaker]?.dot || "#6366f1"}`,
               }}>
                 <div style={{ fontWeight: 700, color: "#cbd5e1", marginBottom: "4px" }}>🎙 Voice Assignment</div>
-                <div>{voiceAssignments[expandedChar.speaker]?.name || "Default System Voice"}</div>
+                <div style={{ color: "#f8fafc", fontWeight: 600 }}>
+                  {voiceAssignments[expandedChar.speaker]?.name || "Default System Voice"}
+                </div>
+                {voiceAssignments[expandedChar.speaker]?.pitch !== undefined && (
+                  <div style={{ marginTop: "4px", fontSize: "11px", color: "#94a3b8" }}>
+                    Pitch: {Number(voiceAssignments[expandedChar.speaker]?.pitch).toFixed(2)}x · Rate: {Number(voiceAssignments[expandedChar.speaker]?.rate ?? 1.0).toFixed(2)}x
+                  </div>
+                )}
+                {onUpdateVoiceAssignment && (
+                  <button
+                    onClick={() => setCustomizingChar(expandedChar)}
+                    style={{
+                      marginTop: "10px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "6px 12px",
+                      borderRadius: "8px",
+                      background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                      border: "none",
+                      color: "#fff",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      boxShadow: "0 2px 8px rgba(99,102,241,0.3)",
+                    }}
+                  >
+                    🎛️ Customize Voice & Sliders
+                  </button>
+                )}
               </div>
             </div>
             
@@ -1084,68 +1541,119 @@ function CharacterPanel({ characters, colorMap, voiceAssignments }) {
         {characters.map(char => {
           const color = colorMap[char.speaker] || NARRATOR_COLOR;
           const isExpanded = expandedChar?.speaker === char.speaker;
+          const isCustom = Boolean(voiceAssignments[char.speaker]?.isCustom);
           
           return (
-            <button
+            <div
               key={char.speaker}
-              onClick={() => setExpandedChar(isExpanded ? null : char)}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
-                padding: "10px 16px",
+                padding: "8px 12px",
                 borderRadius: "12px",
                 background: isExpanded ? `${color.bg}99` : color.bg,
-                border: isExpanded ? `2px solid ${color.border}` : "1px solid transparent",
+                border: isExpanded ? `2px solid ${color.border}` : "1px solid rgba(255,255,255,0.08)",
                 minWidth: "fit-content",
                 flexShrink: 0,
                 boxShadow: isExpanded 
                   ? `0 0 24px ${color.dot}50, inset 0 0 16px ${color.dot}15`
                   : `0 4px 12px rgba(0, 0, 0, 0.2)`,
                 transition: "all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-              onMouseEnter={e => {
-                if (!isExpanded) {
-                  e.currentTarget.style.boxShadow = `0 0 28px ${color.dot}70, 0 10px 28px rgba(0,0,0,0.4)`;
-                  e.currentTarget.style.transform = "translateY(-5px) scale(1.05)";
-                  e.currentTarget.style.background = `${color.bg}cc`;
-                }
-              }}
-              onMouseLeave={e => {
-                if (!isExpanded) {
-                  e.currentTarget.style.boxShadow = `0 4px 12px rgba(0, 0, 0, 0.2)`;
-                  e.currentTarget.style.transform = "translateY(0) scale(1)";
-                  e.currentTarget.style.background = color.bg;
-                }
               }}
             >
-              <div style={{
-                width: isExpanded ? "12px" : "8px",
-                height: isExpanded ? "12px" : "8px",
-                borderRadius: "50%",
-                background: color.dot,
-                boxShadow: `0 0 ${isExpanded ? "16px" : "6px"} ${color.dot}`,
-                flexShrink: 0,
-                transition: "all 0.3s",
-              }} />
-              
-              <div style={{
-                fontSize: isExpanded ? "14px" : "13px",
-                fontWeight: 700,
-                color: color.text,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                transition: "all 0.3s",
-              }}>
-                {char.speaker}
-              </div>
-            </button>
+              <button
+                onClick={() => setExpandedChar(isExpanded ? null : char)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  padding: 0,
+                }}
+              >
+                <div style={{
+                  width: isExpanded ? "12px" : "8px",
+                  height: isExpanded ? "12px" : "8px",
+                  borderRadius: "50%",
+                  background: color.dot,
+                  boxShadow: `0 0 ${isExpanded ? "16px" : "6px"} ${color.dot}`,
+                  flexShrink: 0,
+                  transition: "all 0.3s",
+                }} />
+                
+                <div style={{
+                  fontSize: isExpanded ? "14px" : "13px",
+                  fontWeight: 700,
+                  color: color.text,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  transition: "all 0.3s",
+                }}>
+                  {char.speaker}
+                </div>
+
+                {isCustom && (
+                  <span style={{ fontSize: "10px", color: "#a5b4fc" }} title="Customized Voice">
+                    ✨
+                  </span>
+                )}
+              </button>
+
+              {onUpdateVoiceAssignment && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCustomizingChar(char);
+                  }}
+                  title={`Customize voice for ${char.speaker}`}
+                  aria-label={`Customize voice for ${char.speaker}`}
+                  style={{
+                    background: "rgba(255, 255, 255, 0.08)",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    borderRadius: "6px",
+                    color: "#cbd5e1",
+                    padding: "3px 8px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = "rgba(99, 102, 241, 0.3)";
+                    e.currentTarget.style.borderColor = "#6366f1";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                    e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)";
+                  }}
+                >
+                  ⚙️ Edit
+                </button>
+              )}
+            </div>
           );
         })}
       </div>
+
+      {customizingChar && (
+        <VoiceCustomizerModal
+          character={customizingChar}
+          currentAssignment={voiceAssignments[customizingChar.speaker]}
+          availableVoices={availableVoices}
+          color={colorMap[customizingChar.speaker] || NARRATOR_COLOR}
+          onClose={() => setCustomizingChar(null)}
+          onSave={onUpdateVoiceAssignment}
+          onReset={onResetVoiceAssignment}
+        />
+      )}
 
       <style>{`
         @keyframes slideDown {
@@ -1157,6 +1665,10 @@ function CharacterPanel({ characters, colorMap, voiceAssignments }) {
             opacity: 1;
             transform: translateY(0);
           }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
       `}</style>
     </div>
@@ -1460,6 +1972,46 @@ export default function NarrateAI() {
     localStorage.setItem("narrateai_voice_assignments", JSON.stringify(item.voiceAssignments));
   }
 
+  const handleUpdateVoiceAssignment = useCallback((speaker, customVoiceData) => {
+    setVoiceAssignments(prev => {
+      const updated = {
+        ...prev,
+        [speaker]: customVoiceData,
+      };
+      try {
+        localStorage.setItem("narrateai_voice_assignments", JSON.stringify(updated));
+      } catch (e) {
+        console.warn("Failed to persist custom voice assignments:", e);
+      }
+      return updated;
+    });
+  }, []);
+
+  const handleResetVoiceAssignment = useCallback((speaker) => {
+    setVoiceAssignments(prev => {
+      const pool = synthRef.current ? synthRef.current.getVoices() : availableVoices;
+      const targetChar = characters.find(c => c.speaker === speaker) || { speaker, persona: "" };
+      const defaultAssigns = assignVoices([targetChar], pool);
+      const updated = {
+        ...prev,
+        [speaker]: defaultAssigns[speaker] ? {
+          name: defaultAssigns[speaker].name,
+          lang: defaultAssigns[speaker].lang,
+          voiceURI: defaultAssigns[speaker].voiceURI,
+          pitch: 1.0,
+          rate: 1.0,
+          isCustom: false,
+        } : null,
+      };
+      try {
+        localStorage.setItem("narrateai_voice_assignments", JSON.stringify(updated));
+      } catch (e) {
+        console.warn("Failed to persist voice assignments:", e);
+      }
+      return updated;
+    });
+  }, [characters, availableVoices]);
+
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { voiceRef.current = resolvedVoiceAssignments; }, [resolvedVoiceAssignments]);
   useEffect(() => { linesRef.current = parsedLines; }, [parsedLines]);
@@ -1729,8 +2281,10 @@ export default function NarrateAI() {
         utt.voice = safePool[0];
       }
     }
-    utt.pitch  = Math.min(2.0, Math.max(0.1, vp.pitch * emotionParams.pitch));
-    utt.rate   = Math.min(3.0, Math.max(0.1, vp.rate * emotionParams.rate * speedRef.current));
+    const characterPitch = typeof assignedVoiceData?.pitch === "number" ? assignedVoiceData.pitch : (vp.pitch || 1.0);
+    const characterRate = typeof assignedVoiceData?.rate === "number" ? assignedVoiceData.rate : (vp.rate || 1.0);
+    utt.pitch  = Math.min(2.0, Math.max(0.1, characterPitch * emotionParams.pitch));
+    utt.rate   = Math.min(3.0, Math.max(0.1, characterRate * emotionParams.rate * speedRef.current));
     utt.volume = emotionParams.volume;
 
     const cleanupWatchdog = () => {
@@ -2063,6 +2617,9 @@ export default function NarrateAI() {
                     characters={characters}
                     colorMap={colorMap}
                     voiceAssignments={resolvedVoiceAssignments}
+                    availableVoices={availableVoices}
+                    onUpdateVoiceAssignment={handleUpdateVoiceAssignment}
+                    onResetVoiceAssignment={handleResetVoiceAssignment}
                   />
                   
                   <div style={{
