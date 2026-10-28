@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const EMOTION_PARAMS = {
@@ -144,7 +144,7 @@ function cleanAndParseJSON(rawText) {
   cleaned = cleaned.replace(/\]\s*(?=\[)/g, "],");
 
   // 6. Strip invalid trailing commas before closing braces/brackets
-  cleaned = cleaned.replace(/,\s*([\]}])/g, "$1");
+  cleaned = cleaned.replace(/,\s*([\]\}])/g, "$1");
 
   // 7. Auto-repair truncated output (e.g., token limit cutoff)
   if (rootType === "array") {
@@ -180,7 +180,7 @@ function cleanAndParseJSON(rawText) {
     }
   } catch {
     // 9. Aggressive object-by-object salvage as ultimate safety net
-    const objectRegex = /\{[\s\S]*?\}(?=\s*[,\]}]|\s*\{|\s*$)/g;
+    const objectRegex = /\{[\s\S]*?\}(?=\s*[,\]\}]|\s*\{|\s*$)/g;
     const matches = cleaned.match(objectRegex);
     if (matches && matches.length > 0) {
       const recovered = [];
@@ -260,7 +260,7 @@ function deduplicateSpeakers(parsedLines) {
 
 // ─── INDIVIDUAL GROQ ATTEMPT ──────────────────────────────────────────────────
 async function callGroqWithModel(apiKey, storyText, model, retryPromptSuffix = "", maxTokens = 4096) {
-  const url = "https://api.groq.com/openai/v1/chat/completions";
+  const url = "[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)";
 
   const userContent = retryPromptSuffix 
     ? `Analyze this story:\n\n${storyText}\n\n${retryPromptSuffix}`
@@ -314,7 +314,7 @@ async function callGroqWithModel(apiKey, storyText, model, retryPromptSuffix = "
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === "AbortError") {
-      throw new Error(`Timeout after 35 seconds for model ${model}.`, { cause: err });
+      throw new Error(`Timeout after 35 seconds for model ${model}.`);
     }
     throw err;
   }
@@ -323,7 +323,7 @@ async function callGroqWithModel(apiKey, storyText, model, retryPromptSuffix = "
 // ─── DYNAMIC GROQ MODEL DISCOVERY ─────────────────────────────────────────────
 async function fetchActiveGroqModels(apiKey) {
   try {
-    const res = await fetch("https://api.groq.com/openai/v1/models", {
+    const res = await fetch("[https://api.groq.com/openai/v1/models](https://api.groq.com/openai/v1/models)", {
       headers: { "Authorization": `Bearer ${apiKey}` },
     });
     if (!res.ok) return null;
@@ -635,79 +635,6 @@ function buildColorMap(lines) {
   return map;
 }
 
-function getStoredNarrateAIState() {
-  const emptyState = {
-    apiKey: "",
-    storyText: "",
-    parsedLines: [],
-    characters: [],
-    colorMap: {},
-    voiceAssignments: {},
-    history: [],
-    view: "input",
-  };
-
-  if (typeof window === "undefined") return emptyState;
-
-  try {
-    const savedApiKey = localStorage.getItem("narrateai_groq_key") || "";
-    const savedStory = localStorage.getItem("narrateai_story_text") || "";
-    const savedParsedLines = JSON.parse(localStorage.getItem("narrateai_parsed_lines") || "[]");
-    const savedCharacters = JSON.parse(localStorage.getItem("narrateai_characters") || "[]");
-    const savedColorMap = JSON.parse(localStorage.getItem("narrateai_color_map") || "{}");
-    const savedVoiceAssignments = JSON.parse(localStorage.getItem("narrateai_voice_assignments") || "{}");
-    const savedView = localStorage.getItem("narrateai_view") || "";
-    const savedHistory = JSON.parse(localStorage.getItem("narrateai_history") || "[]");
-    const parsedLines = Array.isArray(savedParsedLines) ? savedParsedLines : [];
-    const characters = Array.isArray(savedCharacters) && savedCharacters.length > 0
-      ? savedCharacters
-      : Object.entries(parsedLines.reduce((acc, line) => {
-          if (line && line.speaker && !acc[line.speaker]) {
-            acc[line.speaker] = line.persona || "";
-          }
-          return acc;
-        }, {})).map(([speaker, persona]) => ({ speaker, persona }));
-
-    return {
-      apiKey: savedApiKey,
-      storyText: savedStory,
-      parsedLines,
-      characters,
-      colorMap: typeof savedColorMap === "object" && savedColorMap ? savedColorMap : {},
-      voiceAssignments: typeof savedVoiceAssignments === "object" && savedVoiceAssignments ? savedVoiceAssignments : {},
-      history: Array.isArray(savedHistory) ? savedHistory : [],
-      view: savedView || (parsedLines.length > 0 ? "story" : "input"),
-    };
-  } catch (err) {
-    console.warn("Failed to restore NarrateAI state from localStorage", err);
-    return emptyState;
-  }
-}
-
-function resolveVoiceAssignments(voiceAssignments, availableVoices) {
-  if (availableVoices.length === 0 || Object.keys(voiceAssignments).length === 0) {
-    return voiceAssignments;
-  }
-
-  const safePool = availableVoices.filter(voice => !isProblematicVoice(voice));
-  const pool = safePool.length > 0 ? safePool : availableVoices;
-  const resolved = {};
-  let changed = false;
-
-  for (const [speaker, voiceData] of Object.entries(voiceAssignments)) {
-    const actualVoice = resolveSpeechVoice(voiceData, pool);
-    if (actualVoice && !isProblematicVoice(actualVoice)) {
-      resolved[speaker] = actualVoice;
-      if (actualVoice !== voiceData) changed = true;
-    } else if (pool.length > 0) {
-      resolved[speaker] = pool[0];
-      changed = true;
-    }
-  }
-
-  return changed ? resolved : voiceAssignments;
-}
-
 // ─── STYLES ───────────────────────────────────────────────────────────────────
 const S = {
   page: {
@@ -905,9 +832,9 @@ function ApiKeyPanel({ apiKey, onKeyChange }) {
       {!apiKey && (
         <div style={{ fontSize: "12px", color: "#64748b", marginTop: "8px", lineHeight: 1.6 }}>
           Get a free API key →{" "}
-          <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer"
+          <a href="[https://console.groq.com/keys](https://console.groq.com/keys)" target="_blank" rel="noreferrer"
             style={{ color: "#6366f1", textDecoration: "none", fontWeight: 600 }}>
-            console.groq.com/keys
+            [console.groq.com/keys](https://console.groq.com/keys)
           </a>
           {" "}— no credit card needed. Very generous free limits.
         </div>
@@ -975,7 +902,7 @@ function VoiceQualityBanner({ availableVoices }) {
           Edge is free and already on your Windows PC.
         </div>
         <a
-          href="microsoft-edge:https://narrate-ai-gamma.vercel.app/"
+          href="microsoft-edge:[https://narrate-ai-gamma.vercel.app/](https://narrate-ai-gamma.vercel.app/)"
           style={{
             display: "inline-block", marginTop: "8px",
             padding: "6px 14px", borderRadius: "8px",
@@ -1349,54 +1276,69 @@ function PlaybackControls({ isPlaying, currentIndex, total, onPlay, onPause, onS
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
-function getTextFromUrlHash() {
-  if (typeof window === "undefined") return "";
-  const match = window.location.hash.match(/^#text=([\s\S]*)$/);
-  if (!match) return "";
-  try {
-    return decodeURIComponent(match[1]);
-  } catch {
-    return "";
-  }
-}
 export default function NarrateAI() {
-  const [initialState] = useState(() => {
-    const stored = getStoredNarrateAIState();
-    const sharedText = getTextFromUrlHash();
-    if (!sharedText) return stored;
-    return { ...stored, storyText: sharedText, view: "input" };
-  });
-  const [apiKey, setApiKey]                     = useState(() => initialState.apiKey);
-  const [storyText, setStoryText]               = useState(() => initialState.storyText);
-  const [parsedLines, setParsedLines]           = useState(() => initialState.parsedLines);
-  const [characters, setCharacters]             = useState(() => initialState.characters);
-  const [colorMap, setColorMap]                 = useState(() => initialState.colorMap);
-  const [voiceAssignments, setVoiceAssignments] = useState(() => initialState.voiceAssignments);
+  const [apiKey, setApiKey]                     = useState("");
+  const [storyText, setStoryText]               = useState("");
+  const [parsedLines, setParsedLines]           = useState([]);
+  const [characters, setCharacters]             = useState([]);
+  const [colorMap, setColorMap]                 = useState({});
+  const [voiceAssignments, setVoiceAssignments] = useState({});
   const [availableVoices, setAvailableVoices]   = useState([]);
   const [isLoading, setIsLoading]               = useState(false);
   const [isPlaying, setIsPlaying]               = useState(false);
   const [currentIndex, setCurrentIndex]         = useState(0);
   const [error, setError]                       = useState("");
   const [speed, setSpeed]                       = useState(1.0);
-  const [view, setView]                         = useState(() => initialState.view);
+  const [view, setView]                         = useState("input");
   const [speechSupported]                       = useState(() => typeof window !== "undefined" && "speechSynthesis" in window && !!window.speechSynthesis);
   const [showFinished, setShowFinished]         = useState(false);
   const [loadingStep, setLoadingStep]           = useState("");
   const [chunkProgress, setChunkProgress]       = useState(null);
   
-  const [history, setHistory]                   = useState(() => initialState.history);
+  const [history, setHistory]                   = useState([]);
   const [showWritingPanel, setShowWritingPanel] = useState(true);
   const [showPlaybackPanel, setShowPlaybackPanel] = useState(true);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const resolvedVoiceAssignments = useMemo(
-    () => resolveVoiceAssignments(voiceAssignments, availableVoices),
-    [voiceAssignments, availableVoices],
-  );
 
   const helpButtonRef = useRef(null);
   const helpDialogRef = useRef(null);
   const previousFocusRef = useRef(null);
   
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const savedApiKey = localStorage.getItem("narrateai_groq_key") || "";
+      const savedStory = localStorage.getItem("narrateai_story_text") || "";
+      const savedParsedLines = JSON.parse(localStorage.getItem("narrateai_parsed_lines") || "[]");
+      const savedCharacters = JSON.parse(localStorage.getItem("narrateai_characters") || "[]");
+      const savedColorMap = JSON.parse(localStorage.getItem("narrateai_color_map") || "{}");
+      const savedVoiceAssignments = JSON.parse(localStorage.getItem("narrateai_voice_assignments") || "{}");
+      const savedView = localStorage.getItem("narrateai_view") || "";
+      const savedHistory = JSON.parse(localStorage.getItem("narrateai_history") || "[]");
+
+      const parsedLines = Array.isArray(savedParsedLines) ? savedParsedLines : [];
+      const characters = Array.isArray(savedCharacters) && savedCharacters.length > 0
+        ? savedCharacters
+        : Object.entries((parsedLines || []).reduce((acc, line) => {
+            if (line && line.speaker && !acc[line.speaker]) {
+              acc[line.speaker] = line.persona || "";
+            }
+            return acc;
+          }, {})).map(([speaker, persona]) => ({ speaker, persona }));
+
+      setApiKey(savedApiKey);
+      setStoryText(savedStory);
+      setParsedLines(parsedLines);
+      setCharacters(characters);
+      setColorMap(typeof savedColorMap === "object" && savedColorMap ? savedColorMap : {});
+      setVoiceAssignments(typeof savedVoiceAssignments === "object" && savedVoiceAssignments ? savedVoiceAssignments : {});
+      setHistory(Array.isArray(savedHistory) ? savedHistory : []);
+      setView(savedView || (parsedLines.length > 0 ? "story" : "input"));
+    } catch (err) {
+      console.warn("Failed to restore NarrateAI state from localStorage", err);
+    }
+  }, []);
+
   const synthRef            = useRef(typeof window !== "undefined" ? window.speechSynthesis : null);
   const watchdogIntervalRef = useRef(null);
   const indexRef            = useRef(0);
@@ -1461,7 +1403,7 @@ export default function NarrateAI() {
   }
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
-  useEffect(() => { voiceRef.current = resolvedVoiceAssignments; }, [resolvedVoiceAssignments]);
+  useEffect(() => { voiceRef.current = voiceAssignments; }, [voiceAssignments]);
   useEffect(() => { linesRef.current = parsedLines; }, [parsedLines]);
 
   useEffect(() => {
@@ -1600,6 +1542,31 @@ export default function NarrateAI() {
     };
   }, [speechSupported]);
 
+  useEffect(() => {
+    if (availableVoices.length === 0 || Object.keys(voiceAssignments).length === 0) return;
+    const safePool = availableVoices.filter(v => !isProblematicVoice(v));
+    const pool = safePool.length > 0 ? safePool : availableVoices;
+    const resolved = {};
+    let changed = false;
+
+    for (const [speaker, voiceData] of Object.entries(voiceAssignments)) {
+      const actualVoice = resolveSpeechVoice(voiceData, pool);
+      if (actualVoice && !isProblematicVoice(actualVoice)) {
+        resolved[speaker] = actualVoice;
+        if (actualVoice !== voiceData) {
+          changed = true;
+        }
+      } else if (pool.length > 0) {
+        resolved[speaker] = pool[0];
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      setVoiceAssignments(resolved);
+    }
+  }, [availableVoices, voiceAssignments]);
+
   // ── ANALYSE WITH GROQ ──
   async function analyzeStory() {
     if (!storyText.trim() || isLoading) return;
@@ -1676,7 +1643,7 @@ export default function NarrateAI() {
     } catch (err) {
       console.error(err);
       if (err.message?.includes("Invalid API Key") || err.message?.includes("401") || err.message?.includes("invalid_api_key")) {
-        setError("Invalid API key. Please double-check your Groq API key at https://console.groq.com/keys");
+        setError("Invalid API key. Please double-check your Groq API key at [console.groq.com/keys](https://console.groq.com/keys)");
       } else {
         setError(`Analysis failed: ${err.message || "Please check your story and try again."}`);
       }
@@ -2062,7 +2029,7 @@ export default function NarrateAI() {
                   <CharacterPanel
                     characters={characters}
                     colorMap={colorMap}
-                    voiceAssignments={resolvedVoiceAssignments}
+                    voiceAssignments={voiceAssignments}
                   />
                   
                   <div style={{
