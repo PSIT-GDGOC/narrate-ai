@@ -36,6 +36,7 @@ Issues are categorized and tracked by our automated webhook:
 |---|---|
 | 🤖 **AI-Powered Analysis** | Uses Groq's Llama 3.3 70B to identify characters, emotions, and voice profiles |
 | 🎭 **Distinct Character Voices** | Each character gets a unique voice based on their persona (gender, age, personality) |
+| 🌍 **Multi-Language Stories** | Detects the story language (ISO 639-1, e.g. `es`, `fr`, `de`, `hi`) and matches characters to installed browser voices for that locale, falling back gracefully if none are installed |
 | 😊 **Emotion-Driven Speech** | Pitch, rate, and volume adjust dynamically based on character emotions (happy, sad, angry, fearful, etc.) |
 | ⏯️ **Full Playback Controls** | Play, pause, stop, skip forward/backward, and adjustable speed (0.75× to 1.5×) |
 | 📱 **Responsive Design** | Modern, dark-themed UI that works on desktop, tablet, and mobile browsers |

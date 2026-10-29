@@ -11,6 +11,9 @@ import {
   GROQ_RETRY_DELAYS_MS,
   GROQ_MAX_RETRIES,
   GROQ_RETRY_BUDGET_MS,
+  DEFAULT_STORY_LANGUAGE,
+  LEGACY_LANGUAGE_CODES,
+  SCRIPT_LANGUAGE_HINTS,
 } from "../constants/storyConstants";
 
 // ─── HELPER FOR ROBUST JSON EXTRACTION ────────────────────────────────────────
@@ -252,6 +255,91 @@ export function deduplicateSpeakers(parsedLines) {
   });
 }
 
+// ─── LANGUAGE DETECTION & LOCALE HELPERS ─────────────────────────────────────
+// Reduces "hi", "hi-IN", "hi_IN", "HI" ... to the lowercase primary subtag ("hi").
+// Returns null when the value is not a plausible language code.
+export function normalizeLangCode(code) {
+  if (typeof code !== "string") return null;
+  const primary = code.trim().toLowerCase().split(/[-_]/)[0];
+  if (!/^[a-z]{2,3}$/.test(primary)) return null;
+  return LEGACY_LANGUAGE_CODES[primary] || primary;
+}
+
+// Region subtag of a locale ("es-MX" -> "MX"), or "".
+function localeRegion(locale) {
+  if (typeof locale !== "string") return "";
+  const parts = locale.trim().replace(/_/g, "-").split("-");
+  const region = parts.find((part, i) => i > 0 && /^[A-Za-z]{2}$/.test(part));
+  return region ? region.toUpperCase() : "";
+}
+
+function guessLanguageFromScript(text) {
+  if (!text) return null;
+  let best = null;
+  let bestCount = 0;
+  for (const { code, regex } of SCRIPT_LANGUAGE_HINTS) {
+    const count = (text.match(regex) || []).length;
+    if (count > bestCount) {
+      best = code;
+      bestCount = count;
+    }
+  }
+  // Kana is unique to Japanese, so it wins over shared Han characters.
+  if (best === "zh" && /[\u3040-\u30FF]/.test(text)) return "ja";
+  return best;
+}
+
+// Picks the story language from the per-line "language" fields returned by the
+// model (weighted by text length so a stray foreign word cannot win), falling
+// back to script detection, then to English.
+export function detectStoryLanguage(lines = []) {
+  const weights = {};
+  let allText = "";
+  for (const line of Array.isArray(lines) ? lines : []) {
+    if (!line || typeof line.text !== "string") continue;
+    allText += line.text + " ";
+    const code = normalizeLangCode(line.language);
+    if (code) weights[code] = (weights[code] || 0) + Math.max(line.text.trim().length, 1);
+  }
+
+  const ranked = Object.entries(weights).sort((a, b) => b[1] - a[1]);
+  if (ranked.length > 0) return ranked[0][0];
+
+  return guessLanguageFromScript(allText) || DEFAULT_STORY_LANGUAGE;
+}
+
+// Voices whose locale belongs to the given language (en-US, en_GB, "en" -> "en").
+export function filterVoicesByLanguage(voices, language) {
+  const code = normalizeLangCode(language);
+  if (!code || !Array.isArray(voices)) return [];
+  return voices.filter(v => v && normalizeLangCode(v.lang) === code);
+}
+
+export function hasVoicesForLanguage(voices, language) {
+  return filterVoicesByLanguage((voices || []).filter(v => !isProblematicVoice(v)), language).length > 0;
+}
+
+export function getLanguageDisplayName(language) {
+  const code = normalizeLangCode(language);
+  if (!code) return "";
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) || code;
+  } catch {
+    return code;
+  }
+}
+
+// Region of the user's browser locale, used to prefer e.g. fr-CA over fr-FR.
+function getPreferredRegion() {
+  if (typeof navigator === "undefined") return "";
+  const locales = navigator.languages?.length ? navigator.languages : [navigator.language];
+  for (const locale of locales) {
+    const region = localeRegion(locale);
+    if (region) return region;
+  }
+  return "";
+}
+
 // ─── VOICE MATCHING & PERSONA CLASSIFICATION ─────────────────────────────────
 export function classifyPersona(persona = "") {
   const p = persona.toLowerCase();
@@ -271,7 +359,7 @@ export function isProblematicVoice(voice) {
   return problematic.some(p => name.includes(p));
 }
 
-export function scoreVoice(voice, traits) {
+export function scoreVoice(voice, traits, language = DEFAULT_STORY_LANGUAGE, preferredRegion = "") {
   if (isProblematicVoice(voice)) return -1000;
   
   const name = (voice.name + " " + voice.lang).toLowerCase();
@@ -282,13 +370,20 @@ export function scoreVoice(voice, traits) {
   if (name.includes("online (natural)")) score += 60;
   if (name.includes("online"))           score += 30;
 
-  if (voice.lang.startsWith("en")) score += 10;
-  if (voice.lang === "en-US")      score += 5;
-  if (voice.lang === "en-GB")      score += 3;
-  if (voice.lang === "en-AU")      score += 2;
+  const targetLang = normalizeLangCode(language) || DEFAULT_STORY_LANGUAGE;
+  if (normalizeLangCode(voice.lang) === targetLang) score += 10;
 
-  const femaleNameHints = ["female","woman","fiona","samantha","karen","victoria","moira","tessa","veena","zira","susan","emily","heather","hazel","ava","allison","kate","serena","nicky","aria","jenny","michelle","monica","sonia","libby","maisie","clara","natasha","isabelle"];
-  const maleNameHints   = ["male","man","daniel","alex","fred","lee","rishi","tom","thomas","arthur","oliver","george","aaron","james","gordon","bruce","junior","guy","ryan","brian","andrew","eric","jacob","jason","tony","william","elliot","liam","noah"];
+  if (targetLang === "en") {
+    if (voice.lang === "en-US")      score += 5;
+    if (voice.lang === "en-GB")      score += 3;
+    if (voice.lang === "en-AU")      score += 2;
+  } else if (preferredRegion && localeRegion(voice.lang) === preferredRegion) {
+    // Prefer the listener's regional variant (fr-CA, es-MX, hi-IN ...).
+    score += 5;
+  }
+
+  const femaleNameHints = ["female","woman","fiona","samantha","karen","victoria","moira","tessa","veena","zira","susan","emily","heather","hazel","ava","allison","kate","serena","nicky","aria","jenny","michelle","monica","sonia","libby","maisie","clara","natasha","isabelle","swara","lekha","kalpana","paulina","helena","amelie","amélie","audrey","lucia","paola","katja","petra","yelda","ioana","joana","luciana","elvira","denise","nanami","sun-hi","xiaoxiao","svetlana","zuzana"];
+  const maleNameHints   = ["male","man","daniel","alex","fred","lee","rishi","tom","thomas","arthur","oliver","george","aaron","james","gordon","bruce","junior","guy","ryan","brian","andrew","eric","jacob","jason","tony","william","elliot","liam","noah","madhur","hemant","jorge","diego","juan","jacques","henri","stefan","markus","conrad","dmitry","pavel","alvaro","álvaro","enrique","killian","keita","yunyang"];
   const looksLikeFemale = femaleNameHints.some(h => name.includes(h));
   const looksLikeMale   = maleNameHints.some(h => name.includes(h));
   if (traits.isFemale && looksLikeFemale) score += 20;
@@ -324,17 +419,31 @@ export function resolveSpeechVoice(assignedVoiceData, voicePool) {
   return null;
 }
 
-export function assignVoices(characters, availableVoices) {
+function isQualityVoice(voice) {
+  const name = voice.name.toLowerCase();
+  return name.includes("online") || name.includes("neural") || name.includes("natural");
+}
+
+// Picks the voice pool for a story language: voices of that language first
+// (high-quality ones preferred), otherwise the previous English-first fallback so
+// narration still works when no matching locale voice is installed.
+export function selectVoicePool(availableVoices, language = DEFAULT_STORY_LANGUAGE) {
   const safeVoices = availableVoices.filter(v => !isProblematicVoice(v));
-  
-  const qualityPool = safeVoices.filter(v => {
-    const name = v.name.toLowerCase();
-    return v.lang.startsWith("en") && 
-           (name.includes("online") || name.includes("neural") || name.includes("natural"));
-  });
-  
+
+  const localeVoices = filterVoicesByLanguage(safeVoices, language);
+  if (localeVoices.length > 0) {
+    const qualityLocale = localeVoices.filter(isQualityVoice);
+    return qualityLocale.length > 0 ? qualityLocale : localeVoices;
+  }
+
+  const qualityPool = safeVoices.filter(v => v.lang.startsWith("en") && isQualityVoice(v));
   const englishPool = safeVoices.filter(v => v.lang.startsWith("en"));
-  const pool = qualityPool.length > 0 ? qualityPool : (englishPool.length > 0 ? englishPool : safeVoices);
+  return qualityPool.length > 0 ? qualityPool : (englishPool.length > 0 ? englishPool : safeVoices);
+}
+
+export function assignVoices(characters, availableVoices, language = DEFAULT_STORY_LANGUAGE) {
+  const pool = selectVoicePool(availableVoices, language);
+  const preferredRegion = getPreferredRegion();
   
   if (pool.length === 0) return {};
 
@@ -351,7 +460,7 @@ export function assignVoices(characters, availableVoices) {
     const scored = pool
       .map(v => ({
         voice: v,
-        score: scoreVoice(v, traits) - (usedNames.has(v.name) ? 1000 : 0),
+        score: scoreVoice(v, traits, language, preferredRegion) - (usedNames.has(v.name) ? 1000 : 0),
       }))
       .sort((a, b) => b.score - a.score);
 
@@ -663,6 +772,12 @@ export async function callGroq(apiKey, storyText, onProgress, onRetry = null) {
     throw new Error("Unable to analyze story into audio units. Please check your text and try again.");
   }
 
-  return deduplicateSpeakers(allLines);
+  const storyLanguage = detectStoryLanguage(allLines);
+  const withLanguage = allLines.map(line => ({
+    ...line,
+    language: normalizeLangCode(line.language) || storyLanguage,
+  }));
+
+  return deduplicateSpeakers(withLanguage);
 }
 export { EMOTION_PARAMS };

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { EMOTION_PARAMS } from "../constants/storyConstants";
-import { isProblematicVoice, resolveSpeechVoice, splitLineIntoChunks } from "../utils/storyParser";
+import { isProblematicVoice, resolveSpeechVoice, splitLineIntoChunks, filterVoicesByLanguage } from "../utils/storyParser";
 
 export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = {}) {
   const [speechSupported] = useState(
@@ -89,9 +89,10 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
     const actualVoiceObj = assignedVoiceData
       ? resolveSpeechVoice(assignedVoiceData, safePool.length > 0 ? safePool : pool)
       : null;
+    const localeFallback = filterVoicesByLanguage(safePool, line.language)[0];
     const selectedVoice = (actualVoiceObj && !isProblematicVoice(actualVoiceObj))
       ? actualVoiceObj
-      : (safePool.length > 0 ? safePool[0] : null);
+      : (localeFallback || (safePool.length > 0 ? safePool[0] : null));
 
     const chunks = splitLineIntoChunks(line.text, 150);
     let chunkIndex = 0;
@@ -117,6 +118,9 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
       if (selectedVoice) {
         utt.voice = selectedVoice;
       }
+      // Lets the browser pick a sensible engine/pronunciation for the story language
+      // even when no voice for that language is installed.
+      utt.lang = selectedVoice?.lang || line.language || utt.lang;
       utt.pitch = Math.min(2.0, Math.max(0.1, vp.pitch * emotionParams.pitch));
       utt.rate = Math.min(3.0, Math.max(0.1, vp.rate * emotionParams.rate * speedRef.current));
       utt.volume = emotionParams.volume;

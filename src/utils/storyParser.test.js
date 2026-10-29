@@ -9,7 +9,14 @@ import {
   formatNarrationDuration,
   splitLineIntoChunks,
   buildColorMap,
+  normalizeLangCode,
+  detectStoryLanguage,
+  filterVoicesByLanguage,
+  hasVoicesForLanguage,
+  getLanguageDisplayName,
+  selectVoicePool,
 } from "./storyParser";
+import { SYSTEM_PROMPT } from "../constants/storyConstants";
 import { NARRATOR_COLOR } from "../constants/storyConstants";
 
 const line = (speaker, text = "Hello.") => ({ speaker, text });
@@ -319,5 +326,154 @@ describe("buildColorMap", () => {
     expect(map.Bob).toBeDefined();
     expect(map.Ann).not.toEqual(map.Bob);
     expect(Object.keys(map)).toHaveLength(3);
+  });
+});
+
+// ─── multi-language support ──────────────────────────────────────────────────
+describe("normalizeLangCode", () => {
+  it("reduces locales to a lowercase primary language code", () => {
+    expect(normalizeLangCode("hi")).toBe("hi");
+    expect(normalizeLangCode("hi-IN")).toBe("hi");
+    expect(normalizeLangCode("es_MX")).toBe("es");
+    expect(normalizeLangCode(" FR ")).toBe("fr");
+  });
+
+  it("maps legacy codes and rejects garbage", () => {
+    expect(normalizeLangCode("iw-IL")).toBe("he");
+    expect(normalizeLangCode("in")).toBe("id");
+    expect(normalizeLangCode("")).toBeNull();
+    expect(normalizeLangCode(undefined)).toBeNull();
+    expect(normalizeLangCode("english")).toBeNull();
+    expect(normalizeLangCode("1x")).toBeNull();
+  });
+});
+
+describe("detectStoryLanguage", () => {
+  it("uses the language reported on the lines", () => {
+    const lines = [
+      { text: "Hola, ¿cómo estás?", language: "es" },
+      { text: "Muy bien, gracias.", language: "es-MX" },
+    ];
+    expect(detectStoryLanguage(lines)).toBe("es");
+  });
+
+  it("weights by text length so a short foreign phrase cannot win", () => {
+    const lines = [
+      { text: "Bonjour", language: "fr" },
+      { text: "The old lighthouse stood alone against the storm all night.", language: "en" },
+    ];
+    expect(detectStoryLanguage(lines)).toBe("en");
+  });
+
+  it("falls back to script detection when the model omits the language", () => {
+    expect(detectStoryLanguage([{ text: "वह धीरे-धीरे घर की ओर चला।" }])).toBe("hi");
+    expect(detectStoryLanguage([{ text: "ひらがなとカタカナと漢字" }])).toBe("ja");
+    expect(detectStoryLanguage([{ text: "Привет, как дела?" }])).toBe("ru");
+  });
+
+  it("ignores invalid codes and defaults to English", () => {
+    expect(detectStoryLanguage([{ text: "Hello there.", language: "klingon" }])).toBe("en");
+    expect(detectStoryLanguage([])).toBe("en");
+    expect(detectStoryLanguage(undefined)).toBe("en");
+  });
+});
+
+describe("filterVoicesByLanguage / hasVoicesForLanguage", () => {
+  const voices = [
+    { name: "A", lang: "en-US" },
+    { name: "B", lang: "hi-IN" },
+    { name: "C", lang: "hi_IN" },
+    { name: "D", lang: "fr-CA" },
+    { name: "Microsoft Zira", lang: "hi-IN" },
+  ];
+
+  it("matches by primary language across separators", () => {
+    expect(filterVoicesByLanguage(voices, "hi").map(v => v.name)).toEqual(["B", "C", "Microsoft Zira"]);
+    expect(filterVoicesByLanguage(voices, "fr-FR").map(v => v.name)).toEqual(["D"]);
+    expect(filterVoicesByLanguage(voices, "de")).toEqual([]);
+    expect(filterVoicesByLanguage(null, "en")).toEqual([]);
+  });
+
+  it("does not count problematic voices as available", () => {
+    expect(hasVoicesForLanguage(voices, "hi")).toBe(true);
+    expect(hasVoicesForLanguage([{ name: "Microsoft Zira", lang: "hi-IN" }], "hi")).toBe(false);
+    expect(hasVoicesForLanguage(voices, "de")).toBe(false);
+  });
+});
+
+describe("getLanguageDisplayName", () => {
+  it("returns a readable language name", () => {
+    expect(getLanguageDisplayName("hi")).toBe("Hindi");
+    expect(getLanguageDisplayName("es-MX")).toBe("Spanish");
+    expect(getLanguageDisplayName("???")).toBe("");
+  });
+});
+
+describe("locale-aware voice assignment", () => {
+  const voices = [
+    { name: "Fiona Online (Natural)", lang: "en-US", voiceURI: "en1" },
+    { name: "Daniel Online (Natural)", lang: "en-GB", voiceURI: "en2" },
+    { name: "Elvira Online (Natural)", lang: "es-ES", voiceURI: "es1" },
+    { name: "Jorge Online (Natural)", lang: "es-MX", voiceURI: "es2" },
+    { name: "Basic Hindi", lang: "hi-IN", voiceURI: "hi1" },
+  ];
+  const cast = [
+    { speaker: "Narrator", persona: "calm" },
+    { speaker: "Ana", persona: "young woman" },
+    { speaker: "Luis", persona: "deep man" },
+  ];
+
+  it("keeps English behaviour by default", () => {
+    const result = assignVoices(cast.slice(1), voices);
+    expect(Object.values(result).every(v => v.lang.startsWith("en"))).toBe(true);
+  });
+
+  it("only uses voices of the story language when available", () => {
+    const result = assignVoices(cast, voices, "es");
+    expect(Object.values(result).every(v => v.lang.startsWith("es"))).toBe(true);
+  });
+
+  it("keeps gender matching inside the locale pool", () => {
+    const result = assignVoices(cast.slice(1), voices, "es");
+    expect(result.Ana.name).toMatch(/Elvira/);
+    expect(result.Luis.name).toMatch(/Jorge/);
+  });
+
+  it("prefers quality voices within the locale, but accepts basic ones", () => {
+    expect(selectVoicePool(voices, "es").every(v => /online/i.test(v.name))).toBe(true);
+    expect(selectVoicePool(voices, "hi").map(v => v.name)).toEqual(["Basic Hindi"]);
+  });
+
+  it("falls back to English voices when no locale voice is installed", () => {
+    const result = assignVoices(cast, voices, "de");
+    expect(Object.keys(result)).toHaveLength(3);
+    expect(Object.values(result).every(v => v.lang.startsWith("en"))).toBe(true);
+  });
+
+  it("falls back to any safe voice when neither locale nor English exist", () => {
+    const onlyFrench = [{ name: "Amelie", lang: "fr-FR", voiceURI: "fr" }];
+    expect(assignVoices([{ speaker: "A" }], onlyFrench, "de").A.name).toBe("Amelie");
+  });
+
+  it("scores language-matching voices above others for non-English stories", () => {
+    const none = { isFemale: false, isMale: false };
+    const es = scoreVoice({ name: "Voice", lang: "es-ES" }, none, "es");
+    const en = scoreVoice({ name: "Voice", lang: "en-US" }, none, "es");
+    expect(es).toBeGreaterThan(en);
+  });
+
+  it("prefers the listener's regional variant", () => {
+    const none = { isFemale: false, isMale: false };
+    const mx = scoreVoice({ name: "Voice", lang: "es-MX" }, none, "es", "MX");
+    const es = scoreVoice({ name: "Voice", lang: "es-ES" }, none, "es", "MX");
+    expect(mx).toBeGreaterThan(es);
+  });
+});
+
+describe("SYSTEM_PROMPT", () => {
+  it("asks the model for an ISO 639-1 language code on every line without translating", () => {
+    expect(SYSTEM_PROMPT).toMatch(/ISO 639-1/);
+    expect(SYSTEM_PROMPT).toMatch(/"language"/);
+    expect(SYSTEM_PROMPT).toMatch(/NEVER translate/);
   });
 });

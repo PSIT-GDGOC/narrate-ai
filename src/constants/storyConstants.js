@@ -55,6 +55,9 @@ RULES:
 - voiceProfile pitch: between 0.6 and 1.8 (1.0 = normal, higher = lighter/higher voice).
 - voiceProfile rate: between 0.8 and 1.3 (1.0 = normal speed).
 - Make voice profiles VERY distinctly different between characters.
+- language: the ISO 639-1 two-letter lowercase code of the language the line's "text" is written in (e.g. "en", "es", "fr", "de", "hi"). Include it on EVERY line. Detect it from the story itself.
+- NEVER translate the story. Keep every "text" value in its original language exactly as written, and keep character names as written in the story.
+- Always keep the narrator's speaker value as the literal English word "Narrator", and ALWAYS write "emotion" and "persona" in English (emotion must come from the English list above), whatever language the story is in. The voice engine depends on this.
 - Return ONLY a valid JSON array. No explanation, no markdown fences, no preamble whatsoever.
 
 OUTPUT FORMAT:
@@ -64,6 +67,7 @@ OUTPUT FORMAT:
     "text": "The old man walked slowly.",
     "emotion": "neutral",
     "isThought": false,
+    "language": "en",
     "persona": "calm measured eloquent narrative voice",
     "voiceProfile": { "pitch": 1.0, "rate": 0.95 }
   },
@@ -72,6 +76,7 @@ OUTPUT FORMAT:
     "text": "You shall not pass!",
     "emotion": "angry",
     "isThought": false,
+    "language": "en",
     "persona": "wise elderly masculine commanding gruff",
     "voiceProfile": { "pitch": 0.75, "rate": 0.9 }
   },
@@ -80,10 +85,37 @@ OUTPUT FORMAT:
     "text": "How will we ever get past the gate?",
     "emotion": "fearful",
     "isThought": true,
+    "language": "en",
     "persona": "brave young hobbit anxious masculine",
     "voiceProfile": { "pitch": 1.1, "rate": 1.05 }
   }
 ]`;
+
+export const DEFAULT_STORY_LANGUAGE = "en";
+
+// Browsers still report a few legacy ISO 639 codes (notably Android Chrome / Java).
+export const LEGACY_LANGUAGE_CODES = { iw: "he", in: "id", ji: "yi" };
+
+// Used only when the model omits or garbles the "language" field: non-Latin
+// scripts identify the language (or a very likely one) without an API call.
+export const SCRIPT_LANGUAGE_HINTS = [
+  { code: "hi", regex: /[\u0900-\u097F]/g },
+  { code: "bn", regex: /[\u0980-\u09FF]/g },
+  { code: "pa", regex: /[\u0A00-\u0A7F]/g },
+  { code: "gu", regex: /[\u0A80-\u0AFF]/g },
+  { code: "ta", regex: /[\u0B80-\u0BFF]/g },
+  { code: "te", regex: /[\u0C00-\u0C7F]/g },
+  { code: "kn", regex: /[\u0C80-\u0CFF]/g },
+  { code: "ml", regex: /[\u0D00-\u0D7F]/g },
+  { code: "th", regex: /[\u0E00-\u0E7F]/g },
+  { code: "ko", regex: /[\uAC00-\uD7AF]/g },
+  { code: "ja", regex: /[\u3040-\u30FF]/g },
+  { code: "zh", regex: /[\u4E00-\u9FFF]/g },
+  { code: "ar", regex: /[\u0600-\u06FF]/g },
+  { code: "he", regex: /[\u0590-\u05FF]/g },
+  { code: "el", regex: /[\u0370-\u03FF]/g },
+  { code: "ru", regex: /[\u0400-\u04FF]/g },
+];
 
 export const NARRATION_WORDS_PER_MINUTE = 140;
 

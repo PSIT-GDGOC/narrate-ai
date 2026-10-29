@@ -5,6 +5,7 @@ import ApiKeyPanel from "./components/ApiKeyPanel";
 import EmptyState from "./components/EmptyState";
 import RetryBanner from "./components/RetryBanner";
 import VoiceQualityBanner from "./components/VoiceQualityBanner";
+import LanguageBanner from "./components/LanguageBanner";
 import CharacterPanel from "./components/CharacterPanel";
 import StoryLine from "./components/StoryLine";
 import PlaybackControls from "./components/PlaybackControls";
@@ -24,6 +25,9 @@ import {
   assignVoices,
   buildColorMap,
   callGroq,
+  detectStoryLanguage,
+  hasVoicesForLanguage,
+  getLanguageDisplayName,
 } from "./utils/storyParser";
 
 export {
@@ -36,6 +40,7 @@ export {
   assignVoices,
   resolveSpeechVoice,
   buildColorMap,
+  detectStoryLanguage,
 };
 
 function getInitialNarrateAIState() {
@@ -343,7 +348,8 @@ export default function NarrateAI() {
 
       const voices = synthRef.current ? synthRef.current.getVoices() : [];
       const pool = voices.length > 0 ? voices : availableVoices;
-      const assignments = assignVoices(chars, pool);
+      const storyLanguage = detectStoryLanguage(dedupedParsed);
+      const assignments = assignVoices(chars, pool, storyLanguage);
       const cMap = buildColorMap(dedupedParsed);
 
       setParsedLines(dedupedParsed);
@@ -385,6 +391,8 @@ export default function NarrateAI() {
   }
 
   const hasStory = parsedLines.length > 0;
+  const storyLanguage = detectStoryLanguage(parsedLines);
+  const showLanguageBanner = hasStory && storyLanguage !== "en";
   const canAnalyze = !!apiKey.trim() && !!storyText.trim() && !isLoading;
   const storyWordCount = storyText.trim() ? storyText.trim().split(/\s+/).filter(Boolean).length : 0;
   const storyCharacterCount = storyText.length;
@@ -498,6 +506,12 @@ export default function NarrateAI() {
                     </span>
                   </div>
 
+                  {showLanguageBanner && (
+                    <LanguageBanner
+                      languageName={getLanguageDisplayName(storyLanguage)}
+                      hasLocaleVoices={hasVoicesForLanguage(availableVoices, storyLanguage)}
+                    />
+                  )}
                   <VoiceQualityBanner availableVoices={availableVoices} />
                   
                   {showFinished && (
