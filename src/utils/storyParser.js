@@ -162,6 +162,23 @@ export function formatNarrationDuration(wordCount) {
   return `${minutes} min`;
 }
 
+// Unicode property escapes keep words intact in scripts such as Devanagari and
+// in Latin words with combining marks, accents, or apostrophes.
+export function countStoryWords(text) {
+  if (typeof text !== "string") return 0;
+  return (text.trim().match(/\p{L}[\p{L}\p{M}'’-]*/gu) || []).length;
+}
+
+// Hindi uses danda (।) and double danda (॥) as sentence terminators.
+export function countStorySentences(text) {
+  if (typeof text !== "string") return 0;
+  return (text.match(/[^.!?।॥]+[.!?।॥]+/g) || []).length;
+}
+
+export function isStoryLongEnough(text) {
+  return countStoryWords(text) >= 10 || countStorySentences(text) >= 3;
+}
+
 // ─── CHROME TTS LONG LINE CHUNKER (~150 chars boundary) ──────────────────────
 export function splitLineIntoChunks(text, maxChars = 150) {
   if (!text || typeof text !== "string") return [];
@@ -286,6 +303,11 @@ function guessLanguageFromScript(text) {
   }
   // Kana is unique to Japanese, so it wins over shared Han characters.
   if (best === "zh" && /[\u3040-\u30FF]/.test(text)) return "ja";
+  if (best) return best;
+
+  // Latin script is shared by many languages. Inverted punctuation and common
+  // accented Spanish letters are a reliable fallback when model metadata is absent.
+  if (/[\u00BF\u00A1áéíóúüñ]/iu.test(text)) return "es";
   return best;
 }
 

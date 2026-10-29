@@ -15,11 +15,16 @@ import {
   hasVoicesForLanguage,
   getLanguageDisplayName,
   selectVoicePool,
+  countStoryWords,
+  countStorySentences,
+  isStoryLongEnough,
 } from "./storyParser";
-import { SYSTEM_PROMPT } from "../constants/storyConstants";
+import { SAMPLE_STORY, SYSTEM_PROMPT } from "../constants/storyConstants";
 import { NARRATOR_COLOR } from "../constants/storyConstants";
 
 const line = (speaker, text = "Hello.") => ({ speaker, text });
+const hindiStory = 'रमेश ने सीमा की ओर देखा। "तुम इतनी देर से कहाँ थी?" उसने पूछा। सीमा मुस्कुराई और बोली, "मैं बाज़ार गई थी, माँ के लिए दवा लेने।" रमेश चुप हो गया।';
+const spanishStory = '¡María llegó temprano! ¿Dónde estás? Ella sonrió y dijo que volvería mañana.';
 
 // ─── cleanAndParseJSON ───────────────────────────────────────────────────────
 describe("cleanAndParseJSON", () => {
@@ -299,6 +304,31 @@ describe("formatNarrationDuration", () => {
   });
 });
 
+describe("story validation", () => {
+  it("accepts the short Hindi story using Unicode words and danda sentences", () => {
+    expect(countStoryWords(hindiStory)).toBeGreaterThanOrEqual(10);
+    expect(countStorySentences(hindiStory)).toBeGreaterThanOrEqual(3);
+    expect(isStoryLongEnough(hindiStory)).toBe(true);
+  });
+
+  it("accepts accented Spanish with inverted punctuation", () => {
+    expect(countStoryWords(spanishStory)).toBeGreaterThanOrEqual(10);
+    expect(countStorySentences(spanishStory)).toBe(3);
+    expect(isStoryLongEnough(spanishStory)).toBe(true);
+  });
+
+  it("keeps the Frodo sample valid and English", () => {
+    expect(isStoryLongEnough(SAMPLE_STORY)).toBe(true);
+    expect(detectStoryLanguage([{ text: SAMPLE_STORY }])).toBe("en");
+  });
+
+  it("rejects very short English, Hindi, and Spanish input", () => {
+    expect(isStoryLongEnough("Hi there.")).toBe(false);
+    expect(isStoryLongEnough("नमस्ते दोस्त।")).toBe(false);
+    expect(isStoryLongEnough("¡Hola amigo!")).toBe(false);
+  });
+});
+
 describe("splitLineIntoChunks", () => {
   it("returns [] for empty/invalid input", () => {
     expect(splitLineIntoChunks("")).toEqual([]);
@@ -369,6 +399,12 @@ describe("detectStoryLanguage", () => {
     expect(detectStoryLanguage([{ text: "वह धीरे-धीरे घर की ओर चला।" }])).toBe("hi");
     expect(detectStoryLanguage([{ text: "ひらがなとカタカナと漢字" }])).toBe("ja");
     expect(detectStoryLanguage([{ text: "Привет, как дела?" }])).toBe("ru");
+  });
+
+  it("detects Hindi, Spanish, and English from matching text", () => {
+    expect(detectStoryLanguage([{ text: hindiStory }])).toBe("hi");
+    expect(detectStoryLanguage([{ text: spanishStory }])).toBe("es");
+    expect(detectStoryLanguage([{ text: SAMPLE_STORY }])).toBe("en");
   });
 
   it("ignores invalid codes and defaults to English", () => {

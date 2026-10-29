@@ -28,6 +28,8 @@ import {
   detectStoryLanguage,
   hasVoicesForLanguage,
   getLanguageDisplayName,
+  countStoryWords,
+  isStoryLongEnough,
 } from "./utils/storyParser";
 
 export {
@@ -302,9 +304,7 @@ export default function NarrateAI() {
       return;
     }
 
-    const wordCount = storyText.trim().split(/\s+/).filter(Boolean).length;
-    const sentenceCount = storyText.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
-    if (wordCount < 10 || sentenceCount < 3) {
+    if (!isStoryLongEnough(storyText)) {
       setError("Please enter a longer story (at least 3 sentences or 10 words) for best results.");
       return;
     }
@@ -394,7 +394,7 @@ export default function NarrateAI() {
   const storyLanguage = detectStoryLanguage(parsedLines);
   const showLanguageBanner = hasStory && storyLanguage !== "en";
   const canAnalyze = !!apiKey.trim() && !!storyText.trim() && !isLoading;
-  const storyWordCount = storyText.trim() ? storyText.trim().split(/\s+/).filter(Boolean).length : 0;
+  const storyWordCount = countStoryWords(storyText);
   const storyCharacterCount = storyText.length;
   const estimatedNarrationDuration = formatNarrationDuration(storyWordCount);
 
