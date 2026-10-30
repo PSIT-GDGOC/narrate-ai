@@ -10,6 +10,8 @@ export default function Header({
   setShowPlaybackPanel,
   helpButtonRef,
   openShortcutsHelp,
+  theme = "dark",
+  onToggleTheme,
 }) {
   return (
     <div style={S.header}>
@@ -57,27 +59,52 @@ export default function Header({
         </div>
       )}
 
-      <button
-        ref={helpButtonRef}
-        type="button"
-        onClick={openShortcutsHelp}
-        aria-label="Show keyboard shortcuts"
-        title="Show keyboard shortcuts"
-        style={{
-          width: "34px",
-          height: "34px",
-          borderRadius: "8px",
-          border: "1px solid rgba(129,140,248,0.5)",
-          background: "rgba(99,102,241,0.15)",
-          color: "#c7d2fe",
-          fontSize: "17px",
-          fontWeight: 800,
-          cursor: "pointer",
-          flexShrink: 0,
-        }}
-      >
-        ?
-      </button>
+      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          style={{
+            width: "34px",
+            height: "34px",
+            borderRadius: "8px",
+            border: "1px solid rgba(255,255,255,0.15)",
+            background: "rgba(255,255,255,0.06)",
+            fontSize: "16px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            transition: "all 0.2s",
+          }}
+        >
+          {theme === "dark" ? "☀️" : "🌙"}
+        </button>
+
+        <button
+          ref={helpButtonRef}
+          type="button"
+          onClick={openShortcutsHelp}
+          aria-label="Show keyboard shortcuts"
+          title="Show keyboard shortcuts"
+          style={{
+            width: "34px",
+            height: "34px",
+            borderRadius: "8px",
+            border: "1px solid rgba(129,140,248,0.5)",
+            background: "rgba(99,102,241,0.15)",
+            color: "#c7d2fe",
+            fontSize: "17px",
+            fontWeight: 800,
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          ?
+        </button>
+      </div>
 
       <div style={{ fontSize: "12px", color: "#475569", fontWeight: 500 }}>
         {hasStory ? `${parsedLinesCount} lines · ${charactersCount} chars` : ""}

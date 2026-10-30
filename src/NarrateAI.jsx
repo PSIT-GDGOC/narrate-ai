@@ -99,6 +99,7 @@ function getInitialNarrateAIState() {
       history: Array.isArray(savedHistory) ? savedHistory : [],
       view: savedView || (parsedLines.length > 0 ? "story" : "input"),
       storyLanguage: savedStoryLanguage,
+      theme: localStorage.getItem("narrateai_theme") || "dark",
     };
   } catch (err) {
     console.warn("Failed to restore NarrateAI state from localStorage", err);
@@ -112,6 +113,7 @@ function getInitialNarrateAIState() {
       history: [],
       view: "input",
       storyLanguage: "en",
+      theme: "dark",
     };
   }
 }
@@ -126,6 +128,7 @@ export default function NarrateAI() {
   const [colorMap, setColorMap]                 = useState(initialState.colorMap);
   const [voiceAssignments, setVoiceAssignments] = useState(initialState.voiceAssignments);
   const [storyLanguage, setStoryLanguage]       = useState(initialState.storyLanguage || "en");
+  const [theme, setTheme]                       = useState(initialState.theme || "dark");
   const [isLoading, setIsLoading]               = useState(false);
   const [error, setError]                       = useState("");
   const [loadingStep, setLoadingStep]           = useState("");
@@ -164,6 +167,20 @@ export default function NarrateAI() {
   useEffect(() => {
     if (apiKey) localStorage.setItem("narrateai_groq_key", apiKey);
   }, [apiKey]);
+
+  // Sync theme with document and localStorage
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", theme);
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("narrateai_theme", theme);
+    }
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => prev === "dark" ? "light" : "dark");
+  }, []);
 
   // Listen for extension story text via URL hash changes
   useEffect(() => {
@@ -440,6 +457,8 @@ export default function NarrateAI() {
         setShowPlaybackPanel={setShowPlaybackPanel}
         helpButtonRef={helpButtonRef}
         openShortcutsHelp={openShortcutsHelp}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       <div style={{
