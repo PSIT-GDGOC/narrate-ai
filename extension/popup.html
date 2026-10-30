@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NarrateAI</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="header">
+      <h1 class="title">
+        <span>🎙️</span> NarrateAI
+      </h1>
+      <span class="badge">v1.0.0</span>
+    </div>
+
+    <div class="meta-row">
+      <span id="charCount">0 characters</span>
+      <button id="grabBtn" class="btn-secondary" title="Grab highlighted text from current page">
+        Grab Highlighted
+      </button>
+    </div>
+
+    <textarea
+      id="storyText"
+      placeholder="Highlight text on any webpage and right-click 'Narrate with NarrateAI', or paste text here…"
+    ></textarea>
+
+    <!-- Built-in Quick Audio Player -->
+    <div class="controls-card">
+      <div class="btn-row">
+        <button id="playBtn" class="btn-icon" title="Play Narration">▶ Play</button>
+        <button id="pauseBtn" class="btn-icon" title="Pause / Resume">⏸ Pause</button>
+        <button id="stopBtn" class="btn-icon" title="Stop">⏹ Stop</button>
+      </div>
+
+      <div class="slider-row">
+        <span>Speed</span>
+        <input id="rateRange" type="range" min="0.5" max="2" step="0.1" value="1" />
+        <span id="rateLabel">1.0×</span>
+      </div>
+    </div>
+
+    <!-- Launch NarrateAI Studio -->
+    <button id="openAppBtn" class="btn-primary">
+      Launch NarrateAI (Dynamic Voices) 🚀
+    </button>
+
+    <!-- Settings (Collapsible URL) -->
+    <div class="settings-section">
+      <details id="settingsDetails">
+        <summary class="settings-toggle">App URL Settings</summary>
+        <div class="settings-body">
+          <input
+            id="appUrlInput"
+            type="url"
+            class="url-input"
+            placeholder="http://localhost:5173"
+          />
+        </div>
+      </details>
+    </div>
+
+    <div id="statusBar" class="status-bar" role="status">Ready</div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

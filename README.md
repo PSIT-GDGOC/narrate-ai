@@ -144,6 +144,25 @@ Experience NarrateAI in action: **[https://narrate-ai-gamma.vercel.app](https://
 
 ---
 
+## 🧩 Browser Extension (Manifest V3)
+
+NarrateAI includes a Chrome Manifest V3 extension that enables one-click narration for highlighted text across any webpage (news articles, blogs, stories).
+
+### ✨ Extension Features
+- 🖱️ **Context Menu**: Highlight text on any page, right-click, and choose **"Narrate with NarrateAI"**.
+- 🎧 **Built-in Quick Player**: Fast playback in the extension popup with Play, Pause, Stop, and speed rate controls (0.5× to 2.0×).
+- 🚀 **One-Click Studio Launch**: Seamlessly passes the captured story to the NarrateAI web application for dynamic character extraction and emotional multi-voice synthesis.
+- 📋 **Grab Highlighted**: Extract active webpage selections directly into the popup with a single click.
+
+### 🛠️ Loading the Unpacked Extension in Chrome Developer Mode
+1. Open Google Chrome and navigate to `chrome://extensions/`.
+2. Enable **Developer mode** using the toggle switch in the top-right corner.
+3. Click the **Load unpacked** button in the top-left toolbar.
+4. Browse and select the `extension/` directory in this repository (`narrate-ai/extension`).
+5. Pin **NarrateAI** from Chrome's extensions toolbar menu for quick access.
+
+
+
 ## 🤝 Contribution Guidelines (GDGOC Hacktoberfest)
 
 We love contributions! Please follow this workflow to ensure your pull request is tracked and credited:

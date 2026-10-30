@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "NarrateAI - Web Story Narrator",
+  "version": "1.0.0",
+  "description": "Highlight text on any webpage and narrate it with NarrateAI using dynamic voices or instant audio playback.",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "scripting"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "NarrateAI",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
