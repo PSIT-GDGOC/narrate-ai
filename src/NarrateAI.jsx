@@ -12,7 +12,7 @@ import HistoryPanel from "./components/HistoryPanel";
 import ShortcutsModal from "./components/ShortcutsModal";
 import useSpeechSynthesis from "./hooks/useSpeechSynthesis";
 import { S } from "./constants/styles";
-import { GROQ_ERROR_MESSAGES, SAMPLE_STORY, KEYBOARD_SHORTCUTS } from "./constants/storyConstants";
+import { GROQ_ERROR_MESSAGES, SAMPLE_STORY, SAMPLE_STORIES, KEYBOARD_SHORTCUTS } from "./constants/storyConstants";
 import {
   cleanAndParseJSON,
   formatNarrationDuration,
@@ -483,7 +483,7 @@ export default function NarrateAI() {
 
               <RetryBanner error={error} retryInfo={isLoading ? retryInfo : null} />
 
-              <div style={{ display: "flex", gap: "10px" }}>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
                 <button
                   onClick={analyzeStory}
                   disabled={!canAnalyze}
@@ -507,14 +507,42 @@ export default function NarrateAI() {
                   ) : "✨ Analyse & Prepare Voices"}
                 </button>
 
-                {!storyText && (
-                  <button onClick={() => setStoryText(SAMPLE_STORY)} style={S.btnSecondary}>
-                    Sample
-                  </button>
-                )}
+                <select
+                  aria-label="Select sample story"
+                  value=""
+                  onChange={(e) => {
+                    const selected = SAMPLE_STORIES.find(s => s.id === e.target.value);
+                    if (selected) {
+                      setStoryText(selected.text);
+                    }
+                  }}
+                  style={{
+                    ...S.btnSecondary,
+                    cursor: "pointer",
+                    padding: "10px 14px",
+                    background: "rgba(255, 255, 255, 0.05)",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    color: "#94a3b8",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    borderRadius: "10px",
+                  }}
+                >
+                  <option value="" disabled>✨ Sample Stories ▾</option>
+                  {SAMPLE_STORIES.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.icon} {s.genre} - {s.title}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {!storyText && !hasStory && <EmptyState onLoadSample={() => setStoryText(SAMPLE_STORY)} />}
+              {!storyText && !hasStory && (
+                <EmptyState
+                  onLoadSample={(txt) => setStoryText(txt || SAMPLE_STORY)}
+                  sampleStories={SAMPLE_STORIES}
+                />
+              )}
 
               <HistoryPanel history={history} onLoadItem={loadHistoryItem} onClear={clearHistory} />
             </div>
