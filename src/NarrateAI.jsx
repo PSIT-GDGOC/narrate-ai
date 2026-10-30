@@ -57,9 +57,10 @@ function getInitialNarrateAIState() {
     let savedStory = localStorage.getItem("narrateai_story_text") || "";
     
     // Check for extension story via URL hash
-    if (window.location.hash.startsWith("#story=")) {
+    if (window.location.hash.startsWith("#story=") || window.location.hash.startsWith("#text=")) {
       try {
-        const hashStory = decodeURIComponent(window.location.hash.substring(7));
+        const prefix = window.location.hash.startsWith("#story=") ? "#story=" : "#text=";
+        const hashStory = decodeURIComponent(window.location.hash.substring(prefix.length));
         if (hashStory.trim()) {
           savedStory = hashStory;
           window.history.replaceState(null, "", window.location.pathname);
@@ -158,6 +159,26 @@ export default function NarrateAI() {
   useEffect(() => {
     if (apiKey) localStorage.setItem("narrateai_groq_key", apiKey);
   }, [apiKey]);
+
+  // Listen for extension story text via URL hash changes
+  useEffect(() => {
+    function handleHashChange() {
+      if (window.location.hash.startsWith("#story=") || window.location.hash.startsWith("#text=")) {
+        try {
+          const prefix = window.location.hash.startsWith("#story=") ? "#story=" : "#text=";
+          const hashStory = decodeURIComponent(window.location.hash.substring(prefix.length));
+          if (hashStory.trim()) {
+            setStoryText(hashStory);
+            window.history.replaceState(null, "", window.location.pathname);
+          }
+        } catch (err) {
+          console.warn("Failed to decode story from URL hash", err);
+        }
+      }
+    }
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   // Persist history
   function saveStoryToHistory(text, parsed, chars, colors, voiceAssigns) {
