@@ -42,6 +42,51 @@ Legolas tilted his head, his elven eyes scanning the treeline. "He is right. I c
 
 Gimli hefted his axe with a grunt. "Let them come. I've not had a decent fight since Moria." He looked at the others and added, more quietly, "Though I suppose running is also acceptable."`;
 
+export const SAMPLE_STORIES = [
+  {
+    id: "fantasy",
+    genre: "Fantasy",
+    icon: "🧙‍♂️",
+    title: "Fantasy: Fellowship of the Quest",
+    description: "6 unique characters (Frodo, Gandalf, Sam, Aragorn, Legolas, Gimli)",
+    text: SAMPLE_STORY,
+  },
+  {
+    id: "scifi",
+    genre: "Sci-Fi",
+    icon: "🚀",
+    title: "Sci-Fi: Breach on Station V",
+    description: "3 unique characters (Commander Vance, TARS AI, Doctor Maya Chen)",
+    text: `Commander Vance stared out the observation deck into the violet haze of the nebula. "Status report, TARS. Did the hyperdrive manifold survive the transition?"
+
+The synthetic droid whirred softly, twin optical rings focusing with a robotic chime. "Manifold integrity at forty-two percent, Commander. Core temperature rising. We have approximately six minutes before coolant failure."
+
+Doctor Maya Chen sprinted into the command bridge, clutching a holographic datapad with trembling hands. "Vance! It's not a malfunction. Look at the subspace telemetry — something pulled us out of warp on purpose."
+
+Vance clenched his fists against the console railing. "Hostile contact? In neutral airspace?"
+
+"Unknown biological signature," Maya answered, her breath caught in her throat. "And it's matching our velocity."
+
+TARS tilted its chrome chassis. "Recommendation: arm defense cannons and initiate full quarantine protocol immediately."`,
+  },
+  {
+    id: "mystery",
+    genre: "Mystery",
+    icon: "🔍",
+    title: "Mystery: The Midnight Manor",
+    description: "3 unique characters (Detective Julian Cross, Inspector Higgins, Lady Genevieve)",
+    text: `Detective Julian Cross leaned against the marble fireplace, inspecting the shattered champagne flute on the Persian rug. "Notice the angle of the fracture, Inspector. This wasn't dropped in panic. It was hurled with deliberate force."
+
+Inspector Higgins adjusted his spectacles and scratched his notebook with a silver fountain pen. "Lord Harrington was alone in the study when the clock struck twelve. The butler swore under oath that the mahogany doors were locked from within."
+
+Lady Genevieve stepped forward from the shadows of the velvet curtains, her pearl necklace trembling against her silk collar. "You're asking the wrong questions, Cross. Don't look at the doors. Look at who held the second set of keys."
+
+Cross turned slowly, his piercing gaze meeting hers. "Are you volunteering a confession, Lady Genevieve, or directing my attention away from yourself?"
+
+Higgins gasped softly, lifting his lantern to cast long, eerie shadows across the portraits on the wall. "Good heavens, Julian... look at the grandfather clock. The pendulum has stopped at midnight."`,
+  },
+];
+
 export const SYSTEM_PROMPT = `You are an expert literary analyst and audiobook director. Your job is to parse story text and extract structured dialogue data for an AI-powered multi-voice audiobook engine called NarrateAI.
 
 RULES:

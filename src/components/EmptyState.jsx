@@ -1,4 +1,4 @@
-export default function EmptyState({ onLoadSample }) {
+export default function EmptyState({ onLoadSample, sampleStories = [] }) {
   return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center",
@@ -11,15 +11,38 @@ export default function EmptyState({ onLoadSample }) {
       <div style={{ fontSize: "14px", color: "#64748b", maxWidth: "380px", lineHeight: 1.7 }}>
         NarrateAI uses Gemini to identify every character, assign them a distinct voice, and read the story aloud with real emotion.
       </div>
-      <button onClick={onLoadSample} style={{
-        marginTop: "8px", padding: "11px 24px", borderRadius: "10px",
-        border: "1px solid rgba(99,102,241,0.4)",
-        background: "rgba(99,102,241,0.1)",
-        fontSize: "13px", color: "#818cf8", cursor: "pointer", fontWeight: 600,
-        transition: "all 0.2s",
-      }}>
-        ✨ Try a sample story
-      </button>
+      {sampleStories.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", marginTop: "8px" }}>
+          <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 600 }}>Or try a sample story:</span>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+            {sampleStories.map(s => (
+              <button
+                key={s.id}
+                onClick={() => onLoadSample(s.text)}
+                style={{
+                  padding: "8px 14px", borderRadius: "8px",
+                  border: "1px solid rgba(99,102,241,0.35)",
+                  background: "rgba(99,102,241,0.1)",
+                  fontSize: "12px", color: "#818cf8", cursor: "pointer", fontWeight: 600,
+                  transition: "all 0.2s",
+                }}
+              >
+                {s.icon} {s.genre}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => onLoadSample()} style={{
+          marginTop: "8px", padding: "11px 24px", borderRadius: "10px",
+          border: "1px solid rgba(99,102,241,0.4)",
+          background: "rgba(99,102,241,0.1)",
+          fontSize: "13px", color: "#818cf8", cursor: "pointer", fontWeight: 600,
+          transition: "all 0.2s",
+        }}>
+          ✨ Try a sample story
+        </button>
+      )}
     </div>
   );
 }
