@@ -25,6 +25,7 @@ import {
   buildColorMap,
   callGroq,
 } from "./utils/storyParser";
+import { exportAsJSON, exportAsTranscript } from "./utils/exportUtils";
 
 export {
   cleanAndParseJSON,
@@ -526,6 +527,7 @@ export default function NarrateAI() {
                 <div style={{ display: "flex", flexDirection: "column", height: "100%", gap: "16px" }}>
                   <div style={{
                     display: "flex", alignItems: "center", gap: "10px",
+                    flexWrap: "wrap",
                     paddingBottom: "12px",
                     borderBottom: "1px solid rgba(255,255,255,0.05)"
                   }}>
@@ -537,6 +539,18 @@ export default function NarrateAI() {
                     <span style={{ fontSize: "11px", color: "#64748b", background: "rgba(99,102,241,0.1)", padding: "4px 10px", borderRadius: "6px", fontWeight: 600 }}>
                       {parsedLines.length} lines
                     </span>
+                    <div style={{ display: "inline-flex", gap: "6px", marginLeft: "auto" }}>
+                      <button
+                        onClick={() => exportAsJSON(parsedLines, characters, voiceAssignments)}
+                        title="Export as JSON script"
+                        style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid rgba(99,102,241,0.25)", background: "rgba(99,102,241,0.1)", color: "#818cf8", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}
+                      >📦 JSON</button>
+                      <button
+                        onClick={() => exportAsTranscript(parsedLines, characters)}
+                        title="Export as text transcript"
+                        style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid rgba(99,102,241,0.25)", background: "rgba(99,102,241,0.1)", color: "#818cf8", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}
+                      >📝 Transcript</button>
+                    </div>
                   </div>
 
                   <VoiceQualityBanner availableVoices={availableVoices} />
@@ -556,7 +570,7 @@ export default function NarrateAI() {
                       <p style={{ fontSize: "13px", color: "#94a3b8", marginBottom: "18px", lineHeight: 1.6 }}>
                         You've finished listening to <strong>{parsedLines.length}</strong> lines voiced by <strong>{characters.length}</strong> unique characters.
                       </p>
-                      <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                      <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
                         <button onClick={() => startPlayback(0)} style={{
                           padding: "10px 20px", borderRadius: "10px", border: "none",
                           background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)", color: "#fff",
@@ -568,6 +582,16 @@ export default function NarrateAI() {
                           background: "rgba(255,255,255,0.05)", color: "#94a3b8",
                           fontSize: "12px", fontWeight: 600, cursor: "pointer",
                         }}>Edit Story</button>
+                        <button onClick={() => exportAsJSON(parsedLines, characters, voiceAssignments)} style={{
+                          padding: "10px 20px", borderRadius: "10px", border: "1px solid rgba(99,102,241,0.3)",
+                          background: "rgba(99,102,241,0.1)", color: "#818cf8",
+                          fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                        }}>📦 Export JSON</button>
+                        <button onClick={() => exportAsTranscript(parsedLines, characters)} style={{
+                          padding: "10px 20px", borderRadius: "10px", border: "1px solid rgba(99,102,241,0.3)",
+                          background: "rgba(99,102,241,0.1)", color: "#818cf8",
+                          fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                        }}>📝 Export Transcript</button>
                       </div>
                     </div>
                   )}
