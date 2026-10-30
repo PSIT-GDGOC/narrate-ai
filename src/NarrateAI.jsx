@@ -684,6 +684,19 @@ export default function NarrateAI() {
         />
       )}
 
+      {/* Accessible live region for screen readers */}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {isPlaying && parsedLines[currentIndex]
+          ? `Now reading line ${currentIndex + 1} of ${parsedLines.length}, voiced by ${parsedLines[currentIndex].speaker}: ${parsedLines[currentIndex].text}`
+          : showFinished
+          ? `Story narration complete! ${parsedLines.length} lines finished.`
+          : ""}
+      </div>
+
       <ShortcutsModal
         isOpen={isHelpOpen}
         onClose={closeShortcutsHelp}
@@ -697,6 +710,22 @@ export default function NarrateAI() {
         @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-4px); } }
         textarea:focus, input:focus { border-color: rgba(99,102,241,0.6) !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
         button:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+        button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+          outline: 2px solid #818cf8 !important;
+          outline-offset: 2px !important;
+          box-shadow: 0 0 0 4px rgba(99,102,241,0.4) !important;
+        }
+        .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border-width: 0;
+        }
         select option { background: #1a1a2e; color: #e2e8f0; }
         
         @media (min-width: 860px) {

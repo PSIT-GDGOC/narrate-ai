@@ -31,6 +31,7 @@ export default function Header({
           <button 
             onClick={() => setShowWritingPanel(!showWritingPanel)}
             title="Toggle Story Writer"
+            aria-label={showWritingPanel ? "Hide Story Writer panel" : "Show Story Writer panel"}
             style={{
               padding: "6px 16px", borderRadius: "8px", border: "none",
               fontSize: "12px", fontWeight: 700, cursor: "pointer",
@@ -44,6 +45,7 @@ export default function Header({
           <button 
             onClick={() => setShowPlaybackPanel(!showPlaybackPanel)}
             title="Toggle Playback"
+            aria-label={showPlaybackPanel ? "Hide Playback panel" : "Show Playback panel"}
             style={{
               padding: "6px 16px", borderRadius: "8px", border: "none",
               fontSize: "12px", fontWeight: 700, cursor: "pointer",
