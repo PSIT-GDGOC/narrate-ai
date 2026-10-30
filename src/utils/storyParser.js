@@ -271,10 +271,11 @@ export function isProblematicVoice(voice) {
   return problematic.some(p => name.includes(p));
 }
 
-export function scoreVoice(voice, traits) {
+export function scoreVoice(voice, traits, targetLanguage = "en") {
   if (isProblematicVoice(voice)) return -1000;
   
   const name = (voice.name + " " + voice.lang).toLowerCase();
+  const langPrefix = (targetLanguage || "en").toLowerCase().trim().slice(0, 2);
   let score = 0;
 
   if (name.includes("natural"))          score += 50;
@@ -282,7 +283,8 @@ export function scoreVoice(voice, traits) {
   if (name.includes("online (natural)")) score += 60;
   if (name.includes("online"))           score += 30;
 
-  if (voice.lang.startsWith("en")) score += 10;
+  if (voice.lang && voice.lang.toLowerCase().startsWith(langPrefix)) score += 25;
+  if (voice.lang && voice.lang.startsWith("en")) score += 10;
   if (voice.lang === "en-US")      score += 5;
   if (voice.lang === "en-GB")      score += 3;
   if (voice.lang === "en-AU")      score += 2;
@@ -324,18 +326,38 @@ export function resolveSpeechVoice(assignedVoiceData, voicePool) {
   return null;
 }
 
-export function assignVoices(characters, availableVoices) {
+export function assignVoices(characters, availableVoices, targetLanguage = "en") {
   const safeVoices = availableVoices.filter(v => !isProblematicVoice(v));
-  
-  const qualityPool = safeVoices.filter(v => {
+  const langPrefix = (targetLanguage || "en").toLowerCase().trim().slice(0, 2);
+
+  // 1. High-quality neural/online/natural voices matching target language locale
+  const qualityTargetPool = safeVoices.filter(v => {
     const name = v.name.toLowerCase();
-    return v.lang.startsWith("en") && 
+    const lang = (v.lang || "").toLowerCase();
+    return lang.startsWith(langPrefix) &&
            (name.includes("online") || name.includes("neural") || name.includes("natural"));
   });
-  
-  const englishPool = safeVoices.filter(v => v.lang.startsWith("en"));
-  const pool = qualityPool.length > 0 ? qualityPool : (englishPool.length > 0 ? englishPool : safeVoices);
-  
+
+  // 2. All available voices matching target language locale
+  const targetLangPool = safeVoices.filter(v => (v.lang || "").toLowerCase().startsWith(langPrefix));
+
+  // 3. Fallback pools: English quality, English all, or general safe voices
+  const englishQualityPool = safeVoices.filter(v => {
+    const name = v.name.toLowerCase();
+    return (v.lang || "").toLowerCase().startsWith("en") &&
+           (name.includes("online") || name.includes("neural") || name.includes("natural"));
+  });
+  const englishPool = safeVoices.filter(v => (v.lang || "").toLowerCase().startsWith("en"));
+
+  // Prioritize target language locale; fallback gracefully if not installed
+  const pool = qualityTargetPool.length > 0
+    ? qualityTargetPool
+    : (targetLangPool.length > 0
+      ? targetLangPool
+      : (englishQualityPool.length > 0
+        ? englishQualityPool
+        : (englishPool.length > 0 ? englishPool : safeVoices)));
+
   if (pool.length === 0) return {};
 
   const assignments = {};
@@ -351,7 +373,7 @@ export function assignVoices(characters, availableVoices) {
     const scored = pool
       .map(v => ({
         voice: v,
-        score: scoreVoice(v, traits) - (usedNames.has(v.name) ? 1000 : 0),
+        score: scoreVoice(v, traits, targetLanguage) - (usedNames.has(v.name) ? 1000 : 0),
       }))
       .sort((a, b) => b.score - a.score);
 

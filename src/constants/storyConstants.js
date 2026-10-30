@@ -54,6 +54,7 @@ RULES:
 - persona: 4-6 descriptive words about the character (e.g. "wise elderly masculine gruff calm" or "energetic young feminine high-pitched fast"). Capture gender, age, vocal traits, and personality to help the voice assignment engine.
 - voiceProfile pitch: between 0.6 and 1.8 (1.0 = normal, higher = lighter/higher voice).
 - voiceProfile rate: between 0.8 and 1.3 (1.0 = normal speed).
+- Identify the story language and set "language" to its 2-letter ISO 639-1 code (e.g. "en", "es", "fr", "de", "hi", "it", "ja", "zh").
 - Make voice profiles VERY distinctly different between characters.
 - Return ONLY a valid JSON array. No explanation, no markdown fences, no preamble whatsoever.
 
@@ -64,6 +65,7 @@ OUTPUT FORMAT:
     "text": "The old man walked slowly.",
     "emotion": "neutral",
     "isThought": false,
+    "language": "en",
     "persona": "calm measured eloquent narrative voice",
     "voiceProfile": { "pitch": 1.0, "rate": 0.95 }
   },
@@ -72,6 +74,7 @@ OUTPUT FORMAT:
     "text": "You shall not pass!",
     "emotion": "angry",
     "isThought": false,
+    "language": "en",
     "persona": "wise elderly masculine commanding gruff",
     "voiceProfile": { "pitch": 0.75, "rate": 0.9 }
   },
@@ -80,6 +83,7 @@ OUTPUT FORMAT:
     "text": "How will we ever get past the gate?",
     "emotion": "fearful",
     "isThought": true,
+    "language": "en",
     "persona": "brave young hobbit anxious masculine",
     "voiceProfile": { "pitch": 1.1, "rate": 1.05 }
   }

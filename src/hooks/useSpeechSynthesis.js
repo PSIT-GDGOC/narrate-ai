@@ -117,6 +117,11 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
       if (selectedVoice) {
         utt.voice = selectedVoice;
       }
+      if (line.language || line.lang) {
+        utt.lang = line.language || line.lang;
+      } else if (selectedVoice?.lang) {
+        utt.lang = selectedVoice.lang;
+      }
       utt.pitch = Math.min(2.0, Math.max(0.1, vp.pitch * emotionParams.pitch));
       utt.rate = Math.min(3.0, Math.max(0.1, vp.rate * emotionParams.rate * speedRef.current));
       utt.volume = emotionParams.volume;
