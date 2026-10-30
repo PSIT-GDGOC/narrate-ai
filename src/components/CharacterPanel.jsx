@@ -1,9 +1,18 @@
 import { useState } from "react";
 import { S } from "../constants/styles";
 import { NARRATOR_COLOR } from "../constants/storyConstants";
+import VoiceCustomizerModal from "./VoiceCustomizerModal";
 
-export default function CharacterPanel({ characters, colorMap, voiceAssignments }) {
+export default function CharacterPanel({
+  characters,
+  colorMap,
+  voiceAssignments,
+  availableVoices = [],
+  onUpdateVoiceAssignment,
+  onResetVoiceAssignment,
+}) {
   const [expandedChar, setExpandedChar] = useState(null);
+  const [customizingChar, setCustomizingChar] = useState(null);
 
   if (!characters.length) return null;
 
@@ -54,11 +63,45 @@ export default function CharacterPanel({ characters, colorMap, voiceAssignments 
               }}>
                 <div style={{ fontWeight: 700, color: "#cbd5e1", marginBottom: "4px" }}>🎙 Voice Assignment</div>
                 <div>{voiceAssignments[expandedChar.speaker]?.name || "Default System Voice"}</div>
+                {voiceAssignments[expandedChar.speaker]?.isCustom && (
+                  <span style={{
+                    display: "inline-block", marginTop: "6px", fontSize: "10px",
+                    background: "rgba(99,102,241,0.25)", color: "#a5b4fc",
+                    padding: "2px 8px", borderRadius: "4px", fontWeight: 600,
+                  }}>
+                    ✨ Custom Override ({Number(voiceAssignments[expandedChar.speaker]?.pitch || 1).toFixed(1)}x pitch, {Number(voiceAssignments[expandedChar.speaker]?.rate || 1).toFixed(1)}x rate)
+                  </span>
+                )}
               </div>
+
+              {onUpdateVoiceAssignment && (
+                <div style={{ marginTop: "14px" }}>
+                  <button
+                    onClick={() => setCustomizingChar(expandedChar)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "8px 16px",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(99,102,241,0.4)",
+                      background: "rgba(99,102,241,0.15)",
+                      color: "#a5b4fc",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    🎨 Customize Voice & Sliders
+                  </button>
+                </div>
+              )}
             </div>
             
             <button
               onClick={() => setExpandedChar(null)}
+              aria-label="Close character details"
               style={{
                 background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)",
                 borderRadius: "10px", padding: "8px 12px", color: "#94a3b8", cursor: "pointer",
@@ -93,6 +136,7 @@ export default function CharacterPanel({ characters, colorMap, voiceAssignments 
         {characters.map(char => {
           const color = colorMap[char.speaker] || NARRATOR_COLOR;
           const isExpanded = expandedChar?.speaker === char.speaker;
+          const isCustom = voiceAssignments[char.speaker]?.isCustom;
           
           return (
             <button
@@ -149,12 +193,24 @@ export default function CharacterPanel({ characters, colorMap, voiceAssignments 
                 textOverflow: "ellipsis",
                 transition: "all 0.3s",
               }}>
-                {char.speaker}
+                {char.speaker} {isCustom && "✨"}
               </div>
             </button>
           );
         })}
       </div>
+
+      {customizingChar && (
+        <VoiceCustomizerModal
+          character={customizingChar}
+          currentAssignment={voiceAssignments[customizingChar.speaker]}
+          availableVoices={availableVoices}
+          color={colorMap[customizingChar.speaker] || NARRATOR_COLOR}
+          onClose={() => setCustomizingChar(null)}
+          onSave={onUpdateVoiceAssignment}
+          onReset={onResetVoiceAssignment}
+        />
+      )}
 
       <style>{`
         @keyframes slideDown {

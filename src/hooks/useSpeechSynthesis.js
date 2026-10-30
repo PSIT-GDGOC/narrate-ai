@@ -131,8 +131,10 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
       } else if (selectedVoice?.lang) {
         utt.lang = selectedVoice.lang;
       }
-      utt.pitch = Math.min(2.0, Math.max(0.1, vp.pitch * emotionParams.pitch));
-      utt.rate = Math.min(3.0, Math.max(0.1, vp.rate * emotionParams.rate * speedRef.current));
+      const customPitch = typeof assignedVoiceData?.pitch === "number" ? assignedVoiceData.pitch : 1.0;
+      const customRate = typeof assignedVoiceData?.rate === "number" ? assignedVoiceData.rate : 1.0;
+      utt.pitch = Math.min(2.0, Math.max(0.1, vp.pitch * emotionParams.pitch * customPitch));
+      utt.rate = Math.min(3.0, Math.max(0.1, vp.rate * emotionParams.rate * speedRef.current * customRate));
       utt.volume = emotionParams.volume;
 
       utt.onboundary = (e) => {
