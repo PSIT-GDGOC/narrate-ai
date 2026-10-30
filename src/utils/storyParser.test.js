@@ -213,6 +213,12 @@ describe("scoreVoice", () => {
     expect(scoreVoice(daniel, female)).toBeLessThan(scoreVoice(daniel, none));
   });
 
+  it("boosts voices matching the target language locale", () => {
+    const esVoice = v("Lucia Natural", "es-ES");
+    const deVoice = v("Lucia Natural", "de-DE");
+    expect(scoreVoice(esVoice, none, "es")).toBeGreaterThan(scoreVoice(deVoice, none, "es"));
+  });
+
   // Known issue: hints are matched by substring, so "man" matches "Samantha"
   // and "male" matches "female". Tracked here until the matching is tightened.
   it.todo("does not treat 'Samantha' as a male-sounding voice name");
@@ -250,6 +256,36 @@ describe("assignVoices", () => {
   it("returns an empty object when no usable voices exist", () => {
     expect(assignVoices([{ speaker: "A" }], [])).toEqual({});
     expect(assignVoices([{ speaker: "A" }], [{ name: "Microsoft Zira", lang: "en-US" }])).toEqual({});
+  });
+
+  it("prioritizes voices matching the target language locale", () => {
+    const multiVoices = [
+      { name: "Fiona Online (Natural)", lang: "en-US", voiceURI: "fiona" },
+      { name: "Lucia Online (Natural)", lang: "es-ES", voiceURI: "lucia" },
+      { name: "Jorge Online (Natural)", lang: "es-MX", voiceURI: "jorge" },
+    ];
+    const result = assignVoices(
+      [
+        { speaker: "Maria", persona: "young woman" },
+        { speaker: "Carlos", persona: "strong man" },
+      ],
+      multiVoices,
+      "es"
+    );
+    expect(result.Maria.lang).toMatch(/^es/);
+    expect(result.Carlos.lang).toMatch(/^es/);
+    expect(result.Maria.name).toMatch(/Lucia/);
+    expect(result.Carlos.name).toMatch(/Jorge/);
+  });
+
+  it("falls back gracefully when target language voices are not available", () => {
+    const result = assignVoices(
+      [{ speaker: "Narrator", persona: "calm" }],
+      voices,
+      "fr"
+    );
+    expect(result.Narrator).toBeDefined();
+    expect(result.Narrator.lang).toMatch(/^en/);
   });
 });
 

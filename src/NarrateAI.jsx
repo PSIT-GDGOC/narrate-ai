@@ -49,10 +49,12 @@ function getInitialNarrateAIState() {
       voiceAssignments: {},
       history: [],
       view: "input",
+      storyLanguage: "en",
     };
   }
 
   try {
+    const savedStoryLanguage = localStorage.getItem("narrateai_story_language") || "en";
     const savedApiKey = localStorage.getItem("narrateai_groq_key") || "";
     let savedStory = localStorage.getItem("narrateai_story_text") || "";
     
@@ -96,6 +98,7 @@ function getInitialNarrateAIState() {
       voiceAssignments: typeof savedVoiceAssignments === "object" && savedVoiceAssignments ? savedVoiceAssignments : {},
       history: Array.isArray(savedHistory) ? savedHistory : [],
       view: savedView || (parsedLines.length > 0 ? "story" : "input"),
+      storyLanguage: savedStoryLanguage,
     };
   } catch (err) {
     console.warn("Failed to restore NarrateAI state from localStorage", err);
@@ -108,6 +111,7 @@ function getInitialNarrateAIState() {
       voiceAssignments: {},
       history: [],
       view: "input",
+      storyLanguage: "en",
     };
   }
 }
@@ -121,6 +125,7 @@ export default function NarrateAI() {
   const [characters, setCharacters]             = useState(initialState.characters);
   const [colorMap, setColorMap]                 = useState(initialState.colorMap);
   const [voiceAssignments, setVoiceAssignments] = useState(initialState.voiceAssignments);
+  const [storyLanguage, setStoryLanguage]       = useState(initialState.storyLanguage || "en");
   const [isLoading, setIsLoading]               = useState(false);
   const [error, setError]                       = useState("");
   const [loadingStep, setLoadingStep]           = useState("");
@@ -181,7 +186,7 @@ export default function NarrateAI() {
   }, []);
 
   // Persist history
-  function saveStoryToHistory(text, parsed, chars, colors, voiceAssigns) {
+  function saveStoryToHistory(text, parsed, chars, colors, voiceAssigns, language = "en") {
     if (!text.trim()) return;
     const title = text.trim().substring(0, 45) + (text.trim().length > 45 ? "..." : "");
     const newItem = {
@@ -192,6 +197,7 @@ export default function NarrateAI() {
       characters: chars,
       colorMap: colors,
       voiceAssignments: voiceAssigns,
+      language,
     };
 
     setHistory(prevHistory => {
@@ -208,6 +214,10 @@ export default function NarrateAI() {
     setCharacters(item.characters || []);
     setColorMap(item.colorMap || {});
     setVoiceAssignments(item.voiceAssignments || {});
+    if (item.language) {
+      setStoryLanguage(item.language);
+      localStorage.setItem("narrateai_story_language", item.language);
+    }
     setCurrentIndex(0);
     setError("");
   }
@@ -362,9 +372,16 @@ export default function NarrateAI() {
       }
       const chars = Object.entries(charMap).map(([speaker, persona]) => ({ speaker, persona }));
 
+      const detectedLang = dedupedParsed.find(l => l && (l.language || l.lang))?.language
+        || dedupedParsed.find(l => l && (l.language || l.lang))?.lang
+        || "en";
+      const cleanLang = typeof detectedLang === "string" ? detectedLang.toLowerCase().trim().slice(0, 2) : "en";
+      setStoryLanguage(cleanLang);
+      localStorage.setItem("narrateai_story_language", cleanLang);
+
       const voices = synthRef.current ? synthRef.current.getVoices() : [];
       const pool = voices.length > 0 ? voices : availableVoices;
-      const assignments = assignVoices(chars, pool);
+      const assignments = assignVoices(chars, pool, cleanLang);
       const cMap = buildColorMap(dedupedParsed);
 
       setParsedLines(dedupedParsed);
@@ -384,7 +401,7 @@ export default function NarrateAI() {
       }
       localStorage.setItem("narrateai_voice_assignments", JSON.stringify(serialized));
 
-      saveStoryToHistory(storyText, dedupedParsed, chars, cMap, serialized);
+      saveStoryToHistory(storyText, dedupedParsed, chars, cMap, serialized, cleanLang);
 
     } catch (err) {
       console.error(err);
@@ -514,6 +531,9 @@ export default function NarrateAI() {
                   }}>
                     <span style={{ fontSize: "16px" }}>🎙️</span>
                     <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#f1f5f9", flex: 1 }}>Playback Studio</h2>
+                    <span style={{ fontSize: "11px", color: "#818cf8", background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.25)", padding: "4px 10px", borderRadius: "6px", fontWeight: 600 }}>
+                      🌐 {storyLanguage.toUpperCase()}
+                    </span>
                     <span style={{ fontSize: "11px", color: "#64748b", background: "rgba(99,102,241,0.1)", padding: "4px 10px", borderRadius: "6px", fontWeight: 600 }}>
                       {parsedLines.length} lines
                     </span>
