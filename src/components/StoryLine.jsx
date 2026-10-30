@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import { S } from "../constants/styles";
 import { NARRATOR_COLOR } from "../constants/storyConstants";
 
-export default function StoryLine({ line, isActive, colorMap, onClick }) {
+export default function StoryLine({ line, isActive, colorMap, onClick, activeCharIndex }) {
   const ref = useRef(null);
   const color = colorMap[line.speaker] || NARRATOR_COLOR;
   const isNarrator = line.speaker === "Narrator";
@@ -13,6 +13,49 @@ export default function StoryLine({ line, isActive, colorMap, onClick }) {
       ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [isActive]);
+
+  const renderContent = () => {
+    if (!line.text) return null;
+    if (!isActive || activeCharIndex === null || activeCharIndex === undefined) {
+      return line.text;
+    }
+
+    const segments = line.text.split(/(\s+)/);
+    let runningIndex = 0;
+
+    return segments.map((seg, idx) => {
+      const start = runningIndex;
+      const end = runningIndex + seg.length;
+      runningIndex = end;
+
+      const isSpace = /^\s+$/.test(seg);
+      if (isSpace) {
+        return <span key={idx}>{seg}</span>;
+      }
+
+      const isWordActive = activeCharIndex >= start && activeCharIndex < end;
+
+      return (
+        <span
+          key={idx}
+          style={isWordActive ? {
+            background: color.bg || "rgba(99, 102, 241, 0.3)",
+            color: "#ffffff",
+            borderRadius: "4px",
+            padding: "1px 4px",
+            boxShadow: `0 0 10px ${color.dot || "#6366f1"}`,
+            fontWeight: 600,
+            transition: "all 0.12s ease",
+            display: "inline-block",
+          } : {
+            transition: "all 0.12s ease",
+          }}
+        >
+          {seg}
+        </span>
+      );
+    });
+  };
 
   return (
     <div ref={ref} onClick={onClick} style={{
@@ -43,7 +86,7 @@ export default function StoryLine({ line, isActive, colorMap, onClick }) {
         borderLeft: isThought ? "2px dashed rgba(255, 255, 255, 0.15)" : "none",
         paddingLeft: isThought ? "8px" : "0",
       }}>
-        {line.text}
+        {renderContent()}
       </div>
     </div>
   );
