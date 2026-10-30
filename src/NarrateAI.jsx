@@ -148,6 +148,7 @@ export default function NarrateAI() {
     isPlaying,
     currentIndex,
     setCurrentIndex,
+    activeCharIndex,
     speed,
     showFinished,
     startPlayback,
@@ -590,7 +591,14 @@ export default function NarrateAI() {
                     boxShadow: "inset 0 2px 8px rgba(0,0,0,0.3)",
                   }}>
                     {parsedLines.map((line, i) => (
-                      <StoryLine key={i} line={line} isActive={i === currentIndex} colorMap={colorMap} onClick={() => startPlayback(i)} />
+                      <StoryLine
+                        key={i}
+                        line={line}
+                        isActive={i === currentIndex}
+                        activeCharIndex={i === currentIndex ? activeCharIndex : null}
+                        colorMap={colorMap}
+                        onClick={() => startPlayback(i)}
+                      />
                     ))}
                   </div>
                 </div>

@@ -9,6 +9,7 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
   const [availableVoices, setAvailableVoices] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [activeCharIndex, setActiveCharIndex] = useState(null);
   const [speed, setSpeed] = useState(1.0);
   const [showFinished, setShowFinished] = useState(false);
 
@@ -66,6 +67,7 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
     const generation = generationRef.current;
 
     cleanupWatchdog();
+    setActiveCharIndex(null);
 
     if (!synthRef.current || !playingRef.current) return;
     if (generation !== generationRef.current) return;
@@ -95,15 +97,18 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
 
     const chunks = splitLineIntoChunks(line.text, 150);
     let chunkIndex = 0;
+    let currentChunkOffset = 0;
 
     const speakNextChunk = () => {
       if (!playingRef.current || generation !== generationRef.current) {
         cleanupWatchdog();
+        setActiveCharIndex(null);
         return;
       }
 
       if (chunkIndex >= chunks.length) {
         cleanupWatchdog();
+        setActiveCharIndex(null);
         if (playingRef.current && generation === generationRef.current) {
           playLine(index + 1);
         }
@@ -111,6 +116,10 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
       }
 
       const chunkText = chunks[chunkIndex];
+      const chunkOffset = line.text.indexOf(chunkText, currentChunkOffset);
+      if (chunkOffset !== -1) {
+        currentChunkOffset = chunkOffset + chunkText.length;
+      }
       chunkIndex += 1;
 
       const utt = new SpeechSynthesisUtterance(chunkText);
@@ -125,6 +134,15 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
       utt.pitch = Math.min(2.0, Math.max(0.1, vp.pitch * emotionParams.pitch));
       utt.rate = Math.min(3.0, Math.max(0.1, vp.rate * emotionParams.rate * speedRef.current));
       utt.volume = emotionParams.volume;
+
+      utt.onboundary = (e) => {
+        if (!playingRef.current || generation !== generationRef.current) return;
+        if (e.name === "word" || !e.name) {
+          const baseOffset = chunkOffset !== -1 ? chunkOffset : 0;
+          const charIdx = typeof e.charIndex === "number" ? e.charIndex : 0;
+          setActiveCharIndex(baseOffset + charIdx);
+        }
+      };
 
       utt.onend = () => {
         speakNextChunk();
@@ -145,6 +163,7 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
     if (!synthRef.current) return;
     generationRef.current += 1;
     setShowFinished(false);
+    setActiveCharIndex(null);
     synthRef.current.cancel();
     playingRef.current = true;
     setIsPlaying(true);
@@ -155,6 +174,7 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
     generationRef.current += 1;
     playingRef.current = false;
     cleanupWatchdog();
+    setActiveCharIndex(null);
     if (synthRef.current) {
       synthRef.current.cancel();
     }
@@ -167,6 +187,7 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
   function pausePlayback() {
     playingRef.current = false;
     cleanupWatchdog();
+    setActiveCharIndex(null);
     if (synthRef.current) {
       synthRef.current.pause();
     }
@@ -186,6 +207,7 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
   function skipForward() {
     if (currentIndex < linesRef.current.length - 1) {
       const nextIdx = currentIndex + 1;
+      setActiveCharIndex(null);
       setCurrentIndex(nextIdx);
       indexRef.current = nextIdx;
       if (playingRef.current) {
@@ -197,6 +219,7 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
   function skipBackward() {
     if (currentIndex > 0) {
       const prevIdx = currentIndex - 1;
+      setActiveCharIndex(null);
       setCurrentIndex(prevIdx);
       indexRef.current = prevIdx;
       if (playingRef.current) {
@@ -220,6 +243,7 @@ export default function useSpeechSynthesis(parsedLines = [], voiceAssignments = 
     isPlaying,
     currentIndex,
     setCurrentIndex,
+    activeCharIndex,
     speed,
     showFinished,
     setShowFinished,
