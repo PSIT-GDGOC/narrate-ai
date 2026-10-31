@@ -135,12 +135,22 @@ Experience NarrateAI in action: **[https://narrate-ai-gamma.vercel.app](https://
 
 ---
 
-## 🎯 How to Use NarrateAI
+## 🎯 Visual Walkthrough & Usage Guide
 
-1. **Enter Your Groq API Key**: Get a free key at [console.groq.com/keys](https://console.groq.com/keys) and paste it into the API key field. (Stored locally in your browser).
-2. **Input Story Text**: Paste any narrative scene or dialogue-heavy story, or click **"Sample"** to load a pre-set story.
-3. **Analyse**: Click **"Analyse & Prepare Voices"**. Groq will structure the dialogue and assign voice profiles within seconds.
-4. **Listen**: Click **"Play"** to enjoy the multi-voice performance!
+### 1. Enter Groq API Key & Story Text
+Get a free API key at [console.groq.com/keys](https://console.groq.com/keys) and paste it into the API key input (securely stored in your browser's `localStorage`). Paste your narrative scene or choose one from the **Sample Stories** selector (Fantasy, Sci-Fi, Mystery).
+
+![NarrateAI Story Input & Setup](docs/screenshots/story-input.svg)
+
+### 2. AI Character Extraction & Voice Studio
+Click **"✨ Analyse & Prepare Voices"**. NarrateAI directs Groq's high-speed inference to analyze the narrative, extract character personas and emotional states, and match appropriate browser speech voices. You can click on any character card to inspect traits or open the **Voice Customizer** to adjust pitch and rate.
+
+![NarrateAI Character Voices Panel](docs/screenshots/character-voices.svg)
+
+### 3. Interactive Playback Studio & Karaoke Highlighting
+Click **"▶ Play"** to enjoy your story! NarrateAI delivers an immersive audiobook experience with synchronized line and karaoke word highlighting, dynamic emotional modulation, speed adjustment (0.75× – 1.5×), keyboard shortcuts, and JSON / Markdown script exports.
+
+![NarrateAI Playback Studio & Controls](docs/screenshots/playback-studio.svg)
 
 ---
 

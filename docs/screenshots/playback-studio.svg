@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0f1a"/>
+      <stop offset="50%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#6366f1" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <rect width="1000" height="640" rx="16" fill="url(#bg)"/>
+
+  <!-- Top App Header -->
+  <rect x="0" y="0" width="1000" height="64" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <text x="32" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="800" fill="#ffffff">🎙️ Narrate<tspan fill="#818cf8">AI</tspan></text>
+  
+  <text x="830" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" fill="#475569">12 lines · 6 chars</text>
+
+  <!-- Studio Header -->
+  <g transform="translate(140, 84)">
+    <text x="0" y="24" font-size="18">🎙️</text>
+    <text x="32" y="24" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="700" fill="#f1f5f9">Playback Studio</text>
+    <rect x="520" y="6" width="60" height="24" rx="6" fill="rgba(99,102,241,0.12)" stroke="rgba(99,102,241,0.25)"/>
+    <text x="532" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#818cf8">🌐 EN</text>
+
+    <rect x="588" y="6" width="70" height="24" rx="6" fill="rgba(99,102,241,0.1)"/>
+    <text x="598" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#64748b">12 lines</text>
+
+    <rect x="664" y="6" width="60" height="24" rx="6" fill="rgba(99,102,241,0.1)" stroke="rgba(99,102,241,0.25)"/>
+    <text x="672" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#818cf8">📦 JSON</text>
+  </g>
+
+  <!-- Screenplay Lines Container -->
+  <g transform="translate(140, 130)">
+    <rect x="0" y="0" width="720" height="380" rx="14" fill="rgba(0,0,0,0.25)" stroke="rgba(255,255,255,0.05)"/>
+
+    <!-- Line 1: Inactive -->
+    <g transform="translate(16, 16)">
+      <rect x="0" y="0" width="688" height="64" rx="10" fill="transparent"/>
+      <text x="16" y="26" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#9ca3af" letter-spacing="1">NARRATOR</text>
+      <text x="16" y="48" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-style="italic" fill="#64748b">Frodo looked up at Gandalf with wide eyes, his breath shallow in the twilight.</text>
+    </g>
+
+    <!-- Line 2: ACTIVE LINE with Karaoke Word Lighting -->
+    <g transform="translate(16, 90)">
+      <rect x="0" y="0" width="688" height="84" rx="10" fill="rgba(99,102,241,0.12)" stroke="#6366f1" stroke-width="1.5"/>
+      <rect x="0" y="0" width="4" height="84" rx="2" fill="#6366f1"/>
+      
+      <circle cx="22" cy="24" r="4" fill="#6366f1"/>
+      <text x="32" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#6366f1" letter-spacing="1">FRODO</text>
+      <text x="86" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#94a3b8">whispering · fearful</text>
+
+      <!-- Spoken dialogue with Karaoke active word -->
+      <text x="16" y="58" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" fill="#f1f5f9">
+        &quot;I can't do this,&quot; he whispered. &quot;The Ring is
+      </text>
+      <!-- Active Spoken Word highlight badge -->
+      <rect x="296" y="42" width="48" height="24" rx="4" fill="rgba(99,102,241,0.5)" filter="url(#glow)"/>
+      <text x="300" y="58" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="700" fill="#ffffff">too</text>
+      <text x="348" y="58" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" fill="#f1f5f9">
+        heavy, too powerful.&quot;
+      </text>
+    </g>
+
+    <!-- Line 3: Inactive -->
+    <g transform="translate(16, 184)">
+      <rect x="0" y="0" width="688" height="84" rx="10" fill="transparent"/>
+      <circle cx="22" cy="24" r="4" fill="#f59e0b"/>
+      <text x="32" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#f59e0b" letter-spacing="1">GANDALF</text>
+      <text x="96" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">measured · wise</text>
+      <text x="16" y="58" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" fill="#64748b">
+        &quot;That is precisely why you were chosen, Frodo. Not because you are strong, but because you are good.&quot;
+      </text>
+    </g>
+
+    <!-- Line 4: Inactive -->
+    <g transform="translate(16, 278)">
+      <rect x="0" y="0" width="688" height="84" rx="10" fill="transparent"/>
+      <circle cx="22" cy="24" r="4" fill="#22c55e"/>
+      <text x="32" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#22c55e" letter-spacing="1">SAM</text>
+      <text x="68" y="28" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">breathless · devoted</text>
+      <text x="16" y="58" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" fill="#64748b">
+        &quot;Mr. Frodo! I've been looking everywhere for you! I'm coming with you.&quot;
+      </text>
+    </g>
+  </g>
+
+  <!-- Bottom Floating Audio Playback Controls -->
+  <g transform="translate(0, 560)">
+    <rect x="0" y="0" width="1000" height="80" fill="rgba(15,15,26,0.95)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    
+    <!-- Progress Bar -->
+    <rect x="32" y="26" width="380" height="4" rx="2" fill="rgba(255,255,255,0.08)"/>
+    <rect x="32" y="26" width="130" height="4" rx="2" fill="url(#accent)"/>
+    <text x="32" y="46" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" fill="#64748b">Line 2 of 12 · 17%</text>
+
+    <!-- Speed Dropdown -->
+    <rect x="440" y="22" width="70" height="36" rx="8" fill="rgba(255,255,255,0.07)" stroke="rgba(255,255,255,0.1)"/>
+    <text x="456" y="45" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" fill="#94a3b8">1.0×</text>
+
+    <!-- Controls Buttons Group -->
+    <g transform="translate(540, 16)">
+      <!-- Prev -->
+      <circle cx="24" cy="24" r="18" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)"/>
+      <text x="16" y="30" font-size="14" fill="#94a3b8">⏮</text>
+
+      <!-- Stop/Reset -->
+      <circle cx="72" cy="24" r="18" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)"/>
+      <text x="64" y="30" font-size="14" fill="#94a3b8">⏹</text>
+
+      <!-- Play/Pause (Active) -->
+      <circle cx="128" cy="24" r="24" fill="url(#accent)" filter="url(#glow)"/>
+      <text x="119" y="31" font-size="18" fill="#ffffff">⏸</text>
+
+      <!-- Next -->
+      <circle cx="184" cy="24" r="18" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)"/>
+      <text x="176" y="30" font-size="14" fill="#94a3b8">⏭</text>
+    </g>
+  </g>
+</svg>

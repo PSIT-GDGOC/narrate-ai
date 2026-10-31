@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0f1a"/>
+      <stop offset="50%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#ef4444"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect width="1000" height="640" rx="16" fill="url(#bg)"/>
+
+  <!-- Top App Header -->
+  <rect x="0" y="0" width="1000" height="64" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <text x="32" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="800" fill="#ffffff">🎙️ Narrate<tspan fill="#818cf8">AI</tspan></text>
+  <rect x="175" y="24" width="145" height="22" rx="11" fill="url(#badgeGrad)"/>
+  <text x="187" y="39" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#ffffff" letter-spacing="0.5">GROQ · GPT-OSS 120B</text>
+  
+  <rect x="880" y="18" width="34" height="34" rx="8" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.12)"/>
+  <text x="889" y="41" font-size="16">☀️</text>
+  <rect x="926" y="18" width="34" height="34" rx="8" fill="rgba(99,102,241,0.15)" stroke="rgba(129,140,248,0.5)"/>
+  <text x="938" y="41" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="800" fill="#c7d2fe">?</text>
+
+  <!-- Main Container -->
+  <g transform="translate(140, 96)">
+    <!-- API Key Card -->
+    <rect x="0" y="0" width="720" height="110" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" filter="url(#shadow)"/>
+    <text x="24" y="34" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#94a3b8" letter-spacing="1.2">GROQ API KEY (FREE AT CONSOLE.GROQ.COM)</text>
+    <rect x="24" y="48" width="672" height="42" rx="10" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.1)"/>
+    <text x="40" y="74" font-family="monospace" font-size="14" fill="#94a3b8">gsk_••••••••••••••••••••••••••••••••••••••••••••</text>
+    <circle cx="670" cy="69" r="6" fill="#22c55e"/>
+
+    <!-- Story Text Card -->
+    <rect x="0" y="130" width="720" height="280" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" filter="url(#shadow)"/>
+    <text x="24" y="162" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#94a3b8" letter-spacing="1.2">YOUR STORY</text>
+    <text x="500" y="162" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" fill="#64748b">175 words · 1,024 characters · est. 1m 15s</text>
+
+    <!-- Textarea inner -->
+    <rect x="24" y="178" width="672" height="212" rx="10" fill="rgba(255,255,255,0.03)" stroke="rgba(99,102,241,0.4)"/>
+    <text x="40" y="210" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" fill="#f1f5f9" line-height="1.6">Frodo looked up at Gandalf with wide eyes. &quot;I can't do this,&quot; he whispered.</text>
+    <text x="40" y="238" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" fill="#f1f5f9">&quot;The Ring is too heavy, too powerful. I'm just a hobbit from the Shire.&quot;</text>
+    <text x="40" y="278" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" fill="#cbd5e1">Gandalf knelt beside him, his voice low and firm. &quot;That is precisely why you were chosen.&quot;</text>
+    <text x="40" y="318" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" fill="#cbd5e1">Sam rushed to his master's side, breathless. &quot;Mr. Frodo! Whatever happens, I'm coming with you!&quot;</text>
+    <text x="40" y="358" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" fill="#64748b">Aragorn emerged from the shadows, hand on the hilt of his sword...</text>
+
+    <!-- Action Buttons -->
+    <g transform="translate(0, 426)">
+      <rect x="0" y="0" width="380" height="48" rx="12" fill="url(#accent)" filter="url(#shadow)"/>
+      <text x="100" y="30" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="700" fill="#ffffff" letter-spacing="0.3">✨ Analyse &amp; Prepare Voices</text>
+
+      <rect x="396" y="0" width="180" height="48" rx="12" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.12)"/>
+      <text x="420" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" fill="#94a3b8">✨ Sample Stories ▾</text>
+    </g>
+  </g>
+</svg>

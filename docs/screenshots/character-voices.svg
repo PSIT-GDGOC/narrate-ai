@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0f1a"/>
+      <stop offset="50%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <rect width="1000" height="640" rx="16" fill="url(#bg)"/>
+
+  <!-- Top App Header -->
+  <rect x="0" y="0" width="1000" height="64" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <text x="32" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="800" fill="#ffffff">🎙️ Narrate<tspan fill="#818cf8">AI</tspan></text>
+  
+  <rect x="420" y="16" width="220" height="34" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)"/>
+  <rect x="424" y="20" width="104" height="26" rx="6" fill="rgba(99,102,241,0.8)"/>
+  <text x="442" y="37" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#ffffff">✏️ Writer</text>
+  <rect x="532" y="20" width="104" height="26" rx="6" fill="rgba(99,102,241,0.8)"/>
+  <text x="548" y="37" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#ffffff">▶️ Playback</text>
+
+  <!-- Title section -->
+  <g transform="translate(100, 90)">
+    <text x="0" y="24" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#818cf8" letter-spacing="1.5">🎭 CHARACTER PROFILES &amp; VOICE STUDIO</text>
+    <text x="0" y="48" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="800" fill="#ffffff">AI-Extracted Personas &amp; Neural Voice Mapping</text>
+    
+    <!-- Expanded Character Card: Frodo -->
+    <g transform="translate(0, 70)">
+      <rect x="0" y="0" width="800" height="200" rx="14" fill="rgba(99,102,241,0.12)" stroke="rgba(99,102,241,0.4)" filter="url(#shadow)"/>
+      <circle cx="34" cy="34" r="8" fill="#6366f1"/>
+      <text x="52" y="40" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="800" fill="#ffffff">Frodo Baggins</text>
+      <rect x="180" y="24" width="84" height="22" rx="6" fill="rgba(99,102,241,0.2)"/>
+      <text x="194" y="39" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#a5b4fc">Protagonist</text>
+
+      <text x="24" y="80" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#cbd5e1" width="750">
+        A brave young hobbit carrying a heavy burden. Reflects gentle vulnerability, anxiety, yet steadfast resilience.
+      </text>
+
+      <!-- Assigned Voice Bar -->
+      <rect x="24" y="105" width="752" height="70" rx="10" fill="rgba(0,0,0,0.3)" stroke="rgba(255,255,255,0.06)"/>
+      <rect x="24" y="105" width="4" height="70" rx="2" fill="#6366f1"/>
+      
+      <text x="44" y="132" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#94a3b8">🎙 ASSIGNED BROWSER VOICE</text>
+      <text x="44" y="156" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="700" fill="#ffffff">Google UK English Male (en-GB)</text>
+
+      <text x="440" y="132" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#94a3b8">VOICE ATTRIBUTES</text>
+      <text x="440" y="156" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#a5b4fc">Pitch: 1.15x · Rate: 1.05x · Volume: 1.0x</text>
+
+      <rect x="660" y="122" width="100" height="34" rx="8" fill="rgba(99,102,241,0.2)" stroke="#6366f1"/>
+      <text x="674" y="144" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#ffffff">🎨 Customize</text>
+    </g>
+
+    <!-- Character Badges Carousel Row -->
+    <g transform="translate(0, 290)">
+      <!-- Frodo (Active) -->
+      <g transform="translate(0, 0)">
+        <rect x="0" y="0" width="145" height="48" rx="12" fill="rgba(99,102,241,0.25)" stroke="#6366f1" stroke-width="2"/>
+        <circle cx="22" cy="24" r="6" fill="#6366f1"/>
+        <text x="36" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="#6366f1">Frodo ✨</text>
+      </g>
+
+      <!-- Gandalf -->
+      <g transform="translate(160, 0)">
+        <rect x="0" y="0" width="150" height="48" rx="12" fill="rgba(245,158,11,0.12)" stroke="transparent"/>
+        <circle cx="22" cy="24" r="5" fill="#f59e0b"/>
+        <text x="36" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="#f59e0b">Gandalf</text>
+      </g>
+
+      <!-- Sam -->
+      <g transform="translate(325, 0)">
+        <rect x="0" y="0" width="130" height="48" rx="12" fill="rgba(34,197,94,0.12)" stroke="transparent"/>
+        <circle cx="22" cy="24" r="5" fill="#22c55e"/>
+        <text x="36" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="#22c55e">Sam</text>
+      </g>
+
+      <!-- Aragorn -->
+      <g transform="translate(470, 0)">
+        <rect x="0" y="0" width="145" height="48" rx="12" fill="rgba(139,92,246,0.12)" stroke="transparent"/>
+        <circle cx="22" cy="24" r="5" fill="#8b5cf6"/>
+        <text x="36" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="#8b5cf6">Aragorn</text>
+      </g>
+
+      <!-- Legolas -->
+      <g transform="translate(630, 0)">
+        <rect x="0" y="0" width="145" height="48" rx="12" fill="rgba(20,184,166,0.12)" stroke="transparent"/>
+        <circle cx="22" cy="24" r="5" fill="#14b8a6"/>
+        <text x="36" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" fill="#14b8a6">Legolas</text>
+      </g>
+    </g>
+
+    <!-- Character Customizer Modal Snippet -->
+    <g transform="translate(80, 360)">
+      <rect x="0" y="0" width="640" height="150" rx="14" fill="#18192b" stroke="rgba(255,255,255,0.12)" filter="url(#shadow)"/>
+      <text x="24" y="32" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="800" fill="#f8fafc">Interactive Voice Customizer &amp; Sliders</text>
+      
+      <text x="24" y="65" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" fill="#cbd5e1">🎵 Pitch: 1.15x</text>
+      <rect x="24" y="75" width="260" height="6" rx="3" fill="rgba(255,255,255,0.1)"/>
+      <rect x="24" y="75" width="160" height="6" rx="3" fill="#6366f1"/>
+      <circle cx="184" cy="78" r="7" fill="#818cf8"/>
+
+      <text x="330" y="65" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" fill="#cbd5e1">⚡ Rate (Speed): 1.05x</text>
+      <rect x="330" y="75" width="260" height="6" rx="3" fill="rgba(255,255,255,0.1)"/>
+      <rect x="330" y="75" width="140" height="6" rx="3" fill="#38bdf8"/>
+      <circle cx="470" cy="78" r="7" fill="#38bdf8"/>
+
+      <rect x="24" y="102" width="120" height="32" rx="8" fill="rgba(99,102,241,0.2)" stroke="#6366f1"/>
+      <text x="44" y="122" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#ffffff">🔊 Test Voice</text>
+
+      <rect x="500" y="102" width="110" height="32" rx="8" fill="url(#accent)"/>
+      <text x="522" y="122" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" fill="#ffffff">Apply Voice</text>
+    </g>
+  </g>
+</svg>
