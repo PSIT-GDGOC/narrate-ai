@@ -233,10 +233,75 @@ export default function NarrateAI() {
   const resolvedVoiceAssignments = useMemo(() => {
     const resolved = {};
     for (const [speaker, voiceData] of Object.entries(voiceAssignments)) {
-      resolved[speaker] = resolveSpeechVoice(voiceData, availableVoices);
+      const voiceObj = resolveSpeechVoice(voiceData, availableVoices);
+      resolved[speaker] = {
+        ...voiceObj,
+        name: voiceObj?.name || voiceData?.name,
+        lang: voiceObj?.lang || voiceData?.lang,
+        voiceURI: voiceObj?.voiceURI || voiceData?.voiceURI,
+        pitch: voiceData?.pitch,
+        rate: voiceData?.rate,
+        isCustom: voiceData?.isCustom,
+      };
     }
     return resolved;
   }, [voiceAssignments, availableVoices]);
+
+  const handleUpdateVoiceAssignment = useCallback((speaker, assignment) => {
+    setVoiceAssignments(prev => {
+      const updated = {
+        ...prev,
+        [speaker]: assignment,
+      };
+      try {
+        const serialized = {};
+        for (const [s, v] of Object.entries(updated)) {
+          serialized[s] = {
+            name: v?.name,
+            lang: v?.lang,
+            voiceURI: v?.voiceURI,
+            pitch: v?.pitch,
+            rate: v?.rate,
+            isCustom: v?.isCustom,
+          };
+        }
+        localStorage.setItem("narrateai_voice_assignments", JSON.stringify(serialized));
+      } catch (err) {
+        console.warn("Failed to persist custom voice assignment", err);
+      }
+      return updated;
+    });
+  }, []);
+
+  const handleResetVoiceAssignment = useCallback((speaker) => {
+    const char = characters.find(c => c.speaker === speaker);
+    if (!char) return;
+    const pool = synthRef.current ? synthRef.current.getVoices() : [];
+    const defaultAssignments = assignVoices([char], pool.length > 0 ? pool : availableVoices, storyLanguage);
+    setVoiceAssignments(prev => {
+      const updated = {
+        ...prev,
+        [speaker]: defaultAssignments[speaker],
+      };
+      try {
+        const serialized = {};
+        for (const [s, v] of Object.entries(updated)) {
+          serialized[s] = {
+            name: v?.name,
+            lang: v?.lang,
+            voiceURI: v?.voiceURI,
+            pitch: v?.pitch,
+            rate: v?.rate,
+            isCustom: v?.isCustom,
+          };
+        }
+        localStorage.setItem("narrateai_voice_assignments", JSON.stringify(serialized));
+      } catch (err) {
+        console.warn("Failed to persist voice assignments after reset", err);
+      }
+      return updated;
+    });
+  }, [characters, availableVoices, storyLanguage, synthRef]);
 
   // Keyboard shortcut modal helpers
   const openShortcutsHelp = useCallback(() => {
@@ -629,6 +694,9 @@ export default function NarrateAI() {
                     characters={characters}
                     colorMap={colorMap}
                     voiceAssignments={resolvedVoiceAssignments}
+                    availableVoices={availableVoices}
+                    onUpdateVoiceAssignment={handleUpdateVoiceAssignment}
+                    onResetVoiceAssignment={handleResetVoiceAssignment}
                   />
                   
                   <div style={{
